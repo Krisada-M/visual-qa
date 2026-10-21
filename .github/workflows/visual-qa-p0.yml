@@ -29,4 +29,17 @@ jobs:
           UIMATCH_CHROME_CHANNEL: chrome
           UIMATCH_CHROMIUM_SANDBOX: 'true'
       - run: pnpm run type-check
-      - run: pnpm exec prettier --check packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
+      - run: pnpm exec prettier --check packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
+      - name: Emit Prettier fixes for branch-only review
+        if: failure()
+        run: |
+          pnpm exec prettier --write packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const cp = require('node:child_process');
+          const changed = cp.execFileSync('git', ['diff', '--name-only'], {encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          for (const path of changed) {
+            const b64 = fs.readFileSync(path).toString('base64');
+            console.log('FORMAT_BLOB|' + path + '|' + b64);
+          }
+          NODE
