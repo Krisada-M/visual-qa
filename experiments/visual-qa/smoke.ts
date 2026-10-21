@@ -1,10 +1,10 @@
+import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '@playwright/test';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const runner = join(repoRoot, 'packages/uimatch-cli/src/visual-qa/run.ts');
@@ -25,8 +25,12 @@ async function execute(manifest: string): Promise<{ code: number; output: string
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';
-    child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); });
-    child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); });
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      output += chunk.toString('utf8');
+    });
     child.on('error', reject);
     child.on('close', (code) => finish({ code: code ?? 2, output }));
   });
@@ -76,19 +80,30 @@ async function main(): Promise<void> {
     };
     await writeFile(manifestPath, JSON.stringify(base));
     const first = await execute(manifestPath);
-    const firstReport = JSON.parse(await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8')) as { verdict: string };
+    const firstReport = JSON.parse(
+      await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8')
+    ) as { verdict: string };
     if (first.code !== 0 || firstReport.verdict !== 'VERIFIED') {
       const full = await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8');
-      const upstream = await readFile(join(dir, 'artifacts', 'report.json'), 'utf8').catch(() => 'no upstream report');
-      throw new Error(`Expected VERIFIED smoke: ${first.output}\nQA: ${full}\nUIMatch: ${upstream.slice(0, 8000)}`);
+      const upstream = await readFile(join(dir, 'artifacts', 'report.json'), 'utf8').catch(
+        () => 'no upstream report'
+      );
+      throw new Error(
+        `Expected VERIFIED smoke: ${first.output}\nQA: ${full}\nUIMatch: ${upstream.slice(0, 8000)}`
+      );
     }
 
-    await writeFile(manifestPath, JSON.stringify({
-      ...base,
-      content: [{ policy: 'dynamic', selector: '#submit' }],
-    }));
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        ...base,
+        content: [{ policy: 'dynamic', selector: '#submit' }],
+      })
+    );
     const second = await execute(manifestPath);
-    const secondReport = JSON.parse(await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8')) as { verdict: string };
+    const secondReport = JSON.parse(
+      await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8')
+    ) as { verdict: string };
     if (second.code === 0 || secondReport.verdict !== 'PARTIAL') {
       throw new Error(`Expected PARTIAL for unaligned dynamic content: ${second.output}`);
     }

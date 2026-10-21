@@ -54,22 +54,52 @@ export function evaluateContent(
   observation: ContentObservation
 ): ContentFinding {
   if (rule.policy === 'volatile' || rule.policy === 'optional') {
-    return { selector: rule.selector, policy: rule.policy, status: 'SKIPPED', reason: 'Not a text gate' };
+    return {
+      selector: rule.selector,
+      policy: rule.policy,
+      status: 'SKIPPED',
+      reason: 'Not a text gate',
+    };
   }
   if (observation.matches !== 1) {
-    return { selector: rule.selector, policy: rule.policy, status: 'FAIL', reason: 'Expected exactly one visible/attached element' };
+    return {
+      selector: rule.selector,
+      policy: rule.policy,
+      status: 'FAIL',
+      reason: 'Expected exactly one visible/attached element',
+    };
   }
   if (rule.policy === 'exact') {
     const pass = observation.text === rule.expected;
-    return { selector: rule.selector, policy: rule.policy, status: pass ? 'PASS' : 'FAIL', reason: pass ? 'Exact content matches' : 'Exact text mismatch' };
+    return {
+      selector: rule.selector,
+      policy: rule.policy,
+      status: pass ? 'PASS' : 'FAIL',
+      reason: pass ? 'Exact content matches' : 'Exact text mismatch',
+    };
   }
   if (rule.nonEmpty && observation.text.trim().length === 0) {
-    return { selector: rule.selector, policy: rule.policy, status: 'FAIL', reason: 'Dynamic text is empty' };
+    return {
+      selector: rule.selector,
+      policy: rule.policy,
+      status: 'FAIL',
+      reason: 'Dynamic text is empty',
+    };
   }
   if (rule.noOverflow && observation.overflow) {
-    return { selector: rule.selector, policy: rule.policy, status: 'FAIL', reason: 'Dynamic content overflows its box' };
+    return {
+      selector: rule.selector,
+      policy: rule.policy,
+      status: 'FAIL',
+      reason: 'Dynamic content overflows its box',
+    };
   }
-  return { selector: rule.selector, policy: rule.policy, status: 'PASS', reason: 'Dynamic content constraints satisfied' };
+  return {
+    selector: rule.selector,
+    policy: rule.policy,
+    status: 'PASS',
+    reason: 'Dynamic content constraints satisfied',
+  };
 }
 
 export function decideVerdict(

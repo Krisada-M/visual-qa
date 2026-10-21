@@ -3,7 +3,6 @@
  */
 
 import { FigmaRestClient } from '#plugin/adapters/figma-rest';
-import { hasFigmaPngBypass, readFigmaPngBypass } from './figma-png-bypass.js';
 import { loadFigmaMcpConfig, loadSkillConfig } from '#plugin/config/index';
 import { buildExpectedSpecFromFigmaWithMetadata } from '#plugin/expected/from-figma';
 import { FigmaMcpClient, parseFigmaRef } from '#plugin/experimental/index.js';
@@ -28,6 +27,7 @@ import {
 } from '@uimatch/selector-spi';
 import { createLogger } from '@uimatch/shared-logging';
 import { resolveColorDeltaEThresholds } from './comparison-thresholds.js';
+import { hasFigmaPngBypass, readFigmaPngBypass } from './figma-png-bypass.js';
 import {
   SelectorPluginTimeoutError,
   getSelectorPluginTimeoutMs,
@@ -351,7 +351,6 @@ async function maybeResolveSelectorWithPlugin(
     }
   }
 }
-
 
 /**
  * Reject a comparison that cannot reach any Figma PNG source.

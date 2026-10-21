@@ -11,7 +11,12 @@
   },
   "content": [
     { "policy": "exact", "selector": "[data-testid='submit']", "expected": "Sign in" },
-    { "policy": "dynamic", "selector": "[data-testid='welcome']", "nonEmpty": true, "noOverflow": true }
+    {
+      "policy": "dynamic",
+      "selector": "[data-testid='welcome']",
+      "nonEmpty": true,
+      "noOverflow": true
+    }
   ],
   "output": "./artifacts"
 }

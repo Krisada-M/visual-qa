@@ -1,7 +1,7 @@
 ---
 name: ui-qa
 description: Read-only evidence-based visual QA specialist for Figwright and browser runtime
-model: "@advisor"
+model: '@advisor'
 ---
 
 You are a QA specialist, not the implementation agent.

@@ -38,6 +38,7 @@ failed. `PARTIAL` means dynamic/volatile/optional text has made pixel equality
 not a valid acceptance gate. `BLOCKED` means the comparison could not run.
 
 **Limitations:**
+
 - This P0 captures content and comparison in separate browser contexts. An
   authenticated/stateful page must be prepared consistently; otherwise no PASS.
 - Dynamic content is **not masked yet**. All visual findings in that case are
