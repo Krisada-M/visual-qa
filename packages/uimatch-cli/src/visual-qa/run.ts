@@ -25,7 +25,7 @@ async function runCompare(
   viewport: string,
   figmaPath: string,
   outDir: string
-): Promise<{ exitCode: number; stderr: string }> {
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
   const cli = fileURLToPath(new URL('../../dist/cli/index.js', import.meta.url));
   await stat(cli);
   const argv = [
@@ -43,17 +43,22 @@ async function runCompare(
 
   return new Promise((ok, reject) => {
     const child = spawn(process.execPath, argv, {
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, UIMATCH_FIGMA_PNG_B64: '', UIMATCH_FIGMA_PNG_PATH: figmaPath },
     });
     let stderr = '';
+    let stdout = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      stdout = (stdout + chunk).slice(-4096);
+    });
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (chunk: string) => {
       stderr = (stderr + chunk).slice(-4096);
     });
     const timer = setTimeout(() => child.kill('SIGTERM'), 120_000);
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (code) => { clearTimeout(timer); ok({ exitCode: code ?? 2, stderr }); });
+    child.on('close', (code) => { clearTimeout(timer); ok({ exitCode: code ?? 2, stderr, stdout }); });
   });
 }
 
@@ -116,7 +121,7 @@ async function main(): Promise<void> {
       outDir
     );
     visual = compared.exitCode === 0 ? 'PASS' : compared.exitCode === 1 ? 'FAIL' : 'BLOCKED';
-    diagnostic = compared.stderr;
+    diagnostic = `${compared.stderr}\n${compared.stdout}`.trim();
   } catch (error) {
     diagnostic = error instanceof Error ? error.message : String(error);
   }
@@ -140,7 +145,7 @@ async function main(): Promise<void> {
     notes: hasVariableContent
       ? ['Pixel gate advisory only: variable content requires aligned fixtures or explicit verified masking.']
       : [],
-    diagnostic: visual === 'BLOCKED' ? diagnostic : undefined,
+    diagnostic: visual !== 'PASS' ? diagnostic : undefined,
     artifacts: { figma: figmaPath, runtime: resolve(outDir, 'runtime.png'), uimatch: outDir },
   };
   await writeFile(resolve(outDir, 'qa-report.json'), JSON.stringify(report, null, 2) + '\n');
