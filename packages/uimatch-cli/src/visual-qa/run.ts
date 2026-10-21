@@ -36,6 +36,7 @@ async function runCompare(
     `selector=${selector}`,
     `viewport=${viewport}`,
     'size=strict',
+    'dpr=1',
     'profile=component/dev',
     `outDir=${outDir}`,
   ];
