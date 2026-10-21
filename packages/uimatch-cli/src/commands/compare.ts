@@ -3,6 +3,7 @@
  */
 
 import { FigmaRestClient } from '#plugin/adapters/figma-rest';
+import { hasFigmaPngBypass, readFigmaPngBypass } from './figma-png-bypass.js';
 import { loadFigmaMcpConfig, loadSkillConfig } from '#plugin/config/index';
 import { buildExpectedSpecFromFigmaWithMetadata } from '#plugin/expected/from-figma';
 import { FigmaMcpClient, parseFigmaRef } from '#plugin/experimental/index.js';
@@ -351,13 +352,6 @@ async function maybeResolveSelectorWithPlugin(
   }
 }
 
-/**
- * Read the Figma PNG supplied directly through the environment, if any.
- */
-function readFigmaPngBypass(): string | undefined {
-  const raw = process.env.UIMATCH_FIGMA_PNG_B64?.trim();
-  return raw ? raw : undefined;
-}
 
 /**
  * Reject a comparison that cannot reach any Figma PNG source.
@@ -369,7 +363,7 @@ function readFigmaPngBypass(): string | undefined {
  */
 export function assertFigmaSourceConfigured(figma: string): void {
   // Bypass mode never resolves the reference, so an unparseable one is harmless.
-  if (readFigmaPngBypass()) return;
+  if (hasFigmaPngBypass()) return;
 
   let parsed: ReturnType<typeof parseFigmaRef>;
   try {
