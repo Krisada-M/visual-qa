@@ -25,5 +25,8 @@ jobs:
       - run: pnpm run build
       - run: pnpm exec vitest run packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa/contract.test.ts
       - run: pnpm exec tsx experiments/visual-qa/smoke.ts
+        env:
+          UIMATCH_CHROME_CHANNEL: chrome
+          UIMATCH_CHROMIUM_SANDBOX: 'true'
       - run: pnpm run type-check
       - run: pnpm exec prettier --check packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
