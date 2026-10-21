@@ -78,7 +78,9 @@ async function main(): Promise<void> {
     const first = await execute(manifestPath);
     const firstReport = JSON.parse(await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8')) as { verdict: string };
     if (first.code !== 0 || firstReport.verdict !== 'VERIFIED') {
-      throw new Error(`Expected VERIFIED smoke: ${first.output}`);
+      const full = await readFile(join(dir, 'artifacts', 'qa-report.json'), 'utf8');
+      const upstream = await readFile(join(dir, 'artifacts', 'report.json'), 'utf8').catch(() => 'no upstream report');
+      throw new Error(`Expected VERIFIED smoke: ${first.output}\nQA: ${full}\nUIMatch: ${upstream.slice(0, 8000)}`);
     }
 
     await writeFile(manifestPath, JSON.stringify({
