@@ -8,7 +8,10 @@ const NamedState = z.object({
 
 export const MappingIndexSchema = z.object({
   frames: z.array(NamedState).min(1).max(500),
-  screens: z.array(NamedState.extend({ path: z.string().startsWith('/') })).min(1).max(500),
+  screens: z
+    .array(NamedState.extend({ path: z.string().startsWith('/') }))
+    .min(1)
+    .max(500),
 });
 
 export type MappingIndex = z.infer<typeof MappingIndexSchema>;

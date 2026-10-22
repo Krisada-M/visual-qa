@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SuiteSchema, preflight, suiteVerdict, type CaseVerdict } from './suite-core.js';
@@ -51,7 +51,10 @@ async function readVerdict(path: string): Promise<CaseVerdict | undefined> {
 
 async function main(): Promise<void> {
   const input = process.argv[2];
-  if (!input) throw new Error('Usage: pnpm exec tsx packages/uimatch-cli/src/visual-qa/suite.ts <suite.json>');
+  if (!input)
+    throw new Error(
+      'Usage: pnpm exec tsx packages/uimatch-cli/src/visual-qa/suite.ts <suite.json>'
+    );
   const suitePath = resolve(input);
   const suite = SuiteSchema.parse(JSON.parse(await readFile(suitePath, 'utf8')) as unknown);
   const outputDir = resolve(dirname(suitePath), 'suite-artifacts');
@@ -67,15 +70,24 @@ async function main(): Promise<void> {
     try {
       const check = await preflight(suitePath, item);
       if (!check.ok) reason = check.reason ?? 'PREFLIGHT_FAILED';
-      else if (usedManifests.has(check.manifestPath) || (check.outputPath && usedOutputs.has(check.outputPath))) {
+      else if (
+        usedManifests.has(check.manifestPath) ||
+        (check.outputPath && usedOutputs.has(check.outputPath))
+      ) {
         reason = 'DUPLICATE_CASE_OR_OUTPUT';
       } else {
         usedManifests.add(check.manifestPath);
         if (check.outputPath) usedOutputs.add(check.outputPath);
+        if (check.outputPath) {
+          await rm(resolve(check.outputPath, 'qa-report.json'), { force: true });
+        }
         const exit = await execute(check.manifestPath);
-        const candidate = await readVerdict(resolve(check.outputPath ?? outputDir, 'qa-report.json'));
+        const candidate = await readVerdict(
+          resolve(check.outputPath ?? outputDir, 'qa-report.json')
+        );
         if (exit === 0 && candidate === 'VERIFIED') verdict = 'VERIFIED';
-        else if (exit === 1 && (candidate === 'FAILED' || candidate === 'PARTIAL')) verdict = candidate;
+        else if (exit === 1 && (candidate === 'FAILED' || candidate === 'PARTIAL'))
+          verdict = candidate;
         else reason = 'RUNNER_BLOCKED_OR_INCONSISTENT';
       }
     } catch {

@@ -89,7 +89,7 @@ Inspect design nodes and runtime states before marking a mapping confirmed.
 Create `suite.json` from `suite.example.json`. For every case:
 
 1. Fill `manifest` with a local manifest path, `mapping.figmaNodeId` with
-   the *same* Figma node as in the manifest, `mapping.runtimePath` with
+   the _same_ Figma node as in the manifest, `mapping.runtimePath` with
    the runtime URL pathname and `mapping.state` with the captured state.
 2. Export a screenshot via Figwright or Figma REST and record its origin.
 3. Calculate its SHA-256 hash: macOS `shasum -a 256 frame.png`;
@@ -114,7 +114,7 @@ Cases run sequentially to isolate state and avoid shared artifact races.
 ## Evidence boundaries / release gates
 
 - V1 `VERIFIED` means the assessed **visual + exact-content** gates passed in a
-  reproducible *configured* state. It is **not** a claim that FRD acceptance,
+  reproducible _configured_ state. It is **not** a claim that FRD acceptance,
   interaction, security or full WCAG accessibility have passed.
 - Dynamic/optional/volatile content keeps the overall result PARTIAL even if
   pixels happen to match, unless a separate deterministic content fixture

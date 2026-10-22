@@ -21,17 +21,20 @@ async function makeFixture() {
   png.writeUInt32BE(844, 20);
   const digest = createHash('sha256').update(png).digest('hex');
   await writeFile(join(fixtureDir, 'figma.png'), png);
-  await writeFile(join(fixtureDir, 'case.json'), JSON.stringify({
-    id: 'suite-member',
-    figma: { nodeId: '123:5', screenshot: './figma.png' },
-    runtime: {
-      url: 'http://127.0.0.1:3000/member',
-      selector: '#app',
-      viewport: { width: 390, height: 844 },
-    },
-    content: [{ policy: 'exact', selector: '#title', expected: 'Member' }],
-    output: './artifacts',
-  }));
+  await writeFile(
+    join(fixtureDir, 'case.json'),
+    JSON.stringify({
+      id: 'suite-member',
+      figma: { nodeId: '123:5', screenshot: './figma.png' },
+      runtime: {
+        url: 'http://127.0.0.1:3000/member',
+        selector: '#app',
+        viewport: { width: 390, height: 844 },
+      },
+      content: [{ policy: 'exact', selector: '#title', expected: 'Member' }],
+      output: './artifacts',
+    })
+  );
   const item = SuiteCaseSchema.parse({
     name: 'Member default',
     manifest: './case.json',
@@ -43,7 +46,11 @@ async function makeFixture() {
       maxAgeHours: 72,
     },
   });
-  return { item, now: Date.parse('2026-10-22T11:00:00.000Z'), path: join(fixtureDir, 'suite.json') };
+  return {
+    item,
+    now: Date.parse('2026-10-22T11:00:00.000Z'),
+    path: join(fixtureDir, 'suite.json'),
+  };
 }
 
 describe('Visual QA suite preflight', () => {
@@ -68,7 +75,9 @@ describe('Visual QA suite preflight', () => {
 
   it('rejects unconfirmed mappings at schema level', async () => {
     const { item } = await makeFixture();
-    expect(() => SuiteCaseSchema.parse({ ...item, mapping: { ...item.mapping, confirmed: false } })).toThrow();
+    expect(() =>
+      SuiteCaseSchema.parse({ ...item, mapping: { ...item.mapping, confirmed: false } })
+    ).toThrow();
   });
 
   it('gives BLOCKED precedence over other verdicts', () => {

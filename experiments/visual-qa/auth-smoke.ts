@@ -1,6 +1,6 @@
 import { chromium } from '@playwright/test';
-import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -199,7 +199,6 @@ async function main(): Promise<void> {
       throw new Error('QA report exposed auth material');
     }
 
-
     // P2: suite preflight checks confirmed frame/state mapping, snapshot hash,
     // freshness, then repeats the authenticated P1 comparison.
     const suitePath = join(directory, 'suite.json');
@@ -209,7 +208,12 @@ async function main(): Promise<void> {
     const suiteCase = {
       name: 'Member authenticated default',
       manifest: './case.json',
-      mapping: { confirmed: true, figmaNodeId: 'fixture:1', runtimePath: '/member', state: 'default' },
+      mapping: {
+        confirmed: true,
+        figmaNodeId: 'fixture:1',
+        runtimePath: '/member',
+        state: 'default',
+      },
       snapshot: {
         source: 'approved-fixture',
         exportedAt: new Date().toISOString(),
@@ -217,12 +221,20 @@ async function main(): Promise<void> {
         maxAgeHours: 12,
       },
     };
-    const suiteData = { version: 1, name: 'P2 authenticated visual regression', cases: [suiteCase] };
+    const suiteData = {
+      version: 1,
+      name: 'P2 authenticated visual regression',
+      cases: [suiteCase],
+    };
     await writeFile(suitePath, JSON.stringify(suiteData));
-    const checked = await runCase(suitePath, {
-      QA_TEST_USERNAME: 'qa-member',
-      QA_TEST_PASSWORD: 'test-only',
-    }, suiteRunner);
+    const checked = await runCase(
+      suitePath,
+      {
+        QA_TEST_USERNAME: 'qa-member',
+        QA_TEST_PASSWORD: 'test-only',
+      },
+      suiteRunner
+    );
     const suiteReport = JSON.parse(
       await readFile(join(directory, 'suite-artifacts/suite-report.json'), 'utf8')
     ) as { verdict: string };
@@ -230,10 +242,13 @@ async function main(): Promise<void> {
       throw new Error(`Expected confirmed authenticated suite VERIFIED: ${checked.output}`);
     }
 
-    await writeFile(suitePath, JSON.stringify({
-      ...suiteData,
-      cases: [{ ...suiteCase, snapshot: { ...suiteCase.snapshot, sha256: 'a'.repeat(64) } }],
-    }));
+    await writeFile(
+      suitePath,
+      JSON.stringify({
+        ...suiteData,
+        cases: [{ ...suiteCase, snapshot: { ...suiteCase.snapshot, sha256: 'a'.repeat(64) } }],
+      })
+    );
     const tampered = await runCase(suitePath, {}, suiteRunner);
     if (tampered.code !== 2 || !tampered.output.includes('BLOCKED')) {
       throw new Error(`Tampered snapshot must BLOCK: ${tampered.output}`);

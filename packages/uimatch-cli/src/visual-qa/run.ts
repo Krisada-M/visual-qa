@@ -180,7 +180,10 @@ async function main(): Promise<void> {
       schemaVersion: 1,
       caseId: manifest.id,
       figmaNodeId: manifest.figma.nodeId,
-      runtime: { url: new URL(manifest.runtime.url).origin + new URL(manifest.runtime.url).pathname, viewport: manifest.runtime.viewport },
+      runtime: {
+        url: new URL(manifest.runtime.url).origin + new URL(manifest.runtime.url).pathname,
+        viewport: manifest.runtime.viewport,
+      },
       auth: manifest.auth
         ? { kind: manifest.auth.kind, role: manifest.auth.role, verified: true }
         : undefined,
@@ -191,7 +194,10 @@ async function main(): Promise<void> {
         pixelParityComparable: !hasVariableContent,
       },
       findings,
-      scope: { assessed: ['visual', 'content'], notAssessed: ['FRD', 'accessibility', 'functional-interactions'] },
+      scope: {
+        assessed: ['visual', 'content'],
+        notAssessed: ['FRD', 'accessibility', 'functional-interactions'],
+      },
       notes: hasVariableContent
         ? [
             'Pixel gate advisory only: variable content requires aligned fixtures or explicit verified masking.',

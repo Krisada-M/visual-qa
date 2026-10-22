@@ -19,7 +19,11 @@ export const SuiteCaseSchema = z.object({
     source: z.enum(['figwright', 'figma-rest', 'approved-fixture']),
     exportedAt: z.string().datetime({ offset: true }),
     sha256: SHA256,
-    maxAgeHours: z.number().positive().max(24 * 365).default(24 * 30),
+    maxAgeHours: z
+      .number()
+      .positive()
+      .max(24 * 365)
+      .default(24 * 30),
   }),
 });
 
@@ -35,7 +39,12 @@ export type CaseVerdict = 'VERIFIED' | 'FAILED' | 'PARTIAL' | 'BLOCKED';
 
 export interface PreflightResult {
   ok: boolean;
-  reason?: 'MAPPING_MISMATCH' | 'SNAPSHOT_MISSING' | 'SNAPSHOT_CHANGED' | 'SNAPSHOT_STALE' | 'SNAPSHOT_FUTURE';
+  reason?:
+    | 'MAPPING_MISMATCH'
+    | 'SNAPSHOT_MISSING'
+    | 'SNAPSHOT_CHANGED'
+    | 'SNAPSHOT_STALE'
+    | 'SNAPSHOT_FUTURE';
   manifestPath: string;
   outputPath?: string;
 }
