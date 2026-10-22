@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AuthenticationSchema } from './contract.js';
 import { prepareAuth } from './auth.js';
+import { AuthenticationSchema } from './contract.js';
 
 describe('P1 authentication contract', () => {
   it('rejects environment variable values and accepts names only', () => {

@@ -1,8 +1,8 @@
 import { chromium } from '@playwright/test';
+import { assertSameRoute } from '@uimatch/core';
 import { chmod, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
-import { assertSameRoute } from '@uimatch/core';
 import type { AuthenticationConfig } from './contract.js';
 
 export interface PreparedAuth {

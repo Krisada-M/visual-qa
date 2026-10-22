@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prepareAuth } from './auth.js';
 import {
   ContentRuleSchema,
   ManifestSchema,
@@ -12,7 +13,6 @@ import {
   type ContentFinding,
   type ContentObservation,
 } from './contract.js';
-import { prepareAuth } from './auth.js';
 
 function targetUrlAllowed(raw: string): boolean {
   const url = new URL(raw);
@@ -102,96 +102,99 @@ async function main(): Promise<void> {
 
   const session = await prepareAuth(manifest.auth, manifest.runtime.url, base);
   try {
-  const findings: ContentFinding[] = [];
-  let visual: 'PASS' | 'FAIL' | 'BLOCKED' = 'BLOCKED';
-  let diagnostic = '';
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const context = await browser.newContext({
-      viewport: manifest.runtime.viewport,
-      deviceScaleFactor: 1,
-      storageState: session.statePath,
-    });
+    const findings: ContentFinding[] = [];
+    let visual: 'PASS' | 'FAIL' | 'BLOCKED' = 'BLOCKED';
+    let diagnostic = '';
+    const browser = await chromium.launch({ headless: true });
     try {
-      const page = await context.newPage();
-      await page.goto(manifest.runtime.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      assertSameRoute(manifest.runtime.url, page.url());
-      if (session.readySelector) {
-        await page.locator(session.readySelector).waitFor({ state: 'visible', timeout: 10_000 });
-      }
-      const target = page.locator(manifest.runtime.selector);
-      await target.waitFor({ state: 'visible', timeout: 10_000 });
-      await target.screenshot({ path: resolve(outDir, 'runtime.png'), animations: 'disabled' });
-      for (const rule of manifest.content.map((item) => ContentRuleSchema.parse(item))) {
-        const locator = page.locator(rule.selector);
-        const matches = await locator.count();
-        let observation: ContentObservation = { matches, text: '', overflow: false };
-        if (matches === 1 && rule.policy !== 'volatile' && rule.policy !== 'optional') {
-          const item = locator.first();
-          observation = {
-            matches,
-            text: (await item.innerText()).trim(),
-            overflow: await item.evaluate(
-              (element) =>
-                element.scrollWidth > element.clientWidth + 1 ||
-                element.scrollHeight > element.clientHeight + 1
-            ),
-          };
+      const context = await browser.newContext({
+        viewport: manifest.runtime.viewport,
+        deviceScaleFactor: 1,
+        storageState: session.statePath,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(manifest.runtime.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        assertSameRoute(manifest.runtime.url, page.url());
+        if (session.readySelector) {
+          await page.locator(session.readySelector).waitFor({ state: 'visible', timeout: 10_000 });
         }
-        findings.push(evaluateContent(rule, observation));
+        const target = page.locator(manifest.runtime.selector);
+        await target.waitFor({ state: 'visible', timeout: 10_000 });
+        await target.screenshot({ path: resolve(outDir, 'runtime.png'), animations: 'disabled' });
+        for (const rule of manifest.content.map((item) => ContentRuleSchema.parse(item))) {
+          const locator = page.locator(rule.selector);
+          const matches = await locator.count();
+          let observation: ContentObservation = { matches, text: '', overflow: false };
+          if (matches === 1 && rule.policy !== 'volatile' && rule.policy !== 'optional') {
+            const item = locator.first();
+            observation = {
+              matches,
+              text: (await item.innerText()).trim(),
+              overflow: await item.evaluate(
+                (element) =>
+                  element.scrollWidth > element.clientWidth + 1 ||
+                  element.scrollHeight > element.clientHeight + 1
+              ),
+            };
+          }
+          findings.push(evaluateContent(rule, observation));
+        }
+      } finally {
+        await context.close();
       }
     } finally {
-      await context.close();
+      await browser.close();
     }
-  } finally {
-    await browser.close();
-  }
 
-  try {
-    const compared = await runCompare(
-      manifest.runtime.url,
-      manifest.runtime.selector,
-      `${manifest.runtime.viewport.width}x${manifest.runtime.viewport.height}`,
-      figmaPath,
-      outDir,
-      session.statePath,
-      session.readySelector
+    try {
+      const compared = await runCompare(
+        manifest.runtime.url,
+        manifest.runtime.selector,
+        `${manifest.runtime.viewport.width}x${manifest.runtime.viewport.height}`,
+        figmaPath,
+        outDir,
+        session.statePath,
+        session.readySelector
+      );
+      visual = compared.exitCode === 0 ? 'PASS' : compared.exitCode === 1 ? 'FAIL' : 'BLOCKED';
+      if (compared.stderr.includes('UIMATCH_AUTH_ROUTE_MISMATCH')) visual = 'BLOCKED';
+      diagnostic = `${compared.stderr}\n${compared.stdout}`.trim();
+    } catch (error) {
+      diagnostic = error instanceof Error ? error.message : String(error);
+    }
+
+    const hasVariableContent = manifest.content.some(
+      (rule) =>
+        rule.policy === 'dynamic' || rule.policy === 'volatile' || rule.policy === 'optional'
     );
-    visual = compared.exitCode === 0 ? 'PASS' : compared.exitCode === 1 ? 'FAIL' : 'BLOCKED';
-    if (compared.stderr.includes('UIMATCH_AUTH_ROUTE_MISMATCH')) visual = 'BLOCKED';
-    diagnostic = `${compared.stderr}\n${compared.stdout}`.trim();
-  } catch (error) {
-    diagnostic = error instanceof Error ? error.message : String(error);
-  }
-
-  const hasVariableContent = manifest.content.some(
-    (rule) => rule.policy === 'dynamic' || rule.policy === 'volatile' || rule.policy === 'optional'
-  );
-  const verdict = decideVerdict(visual, findings, hasVariableContent);
-  const report = {
-    schemaVersion: 1,
-    caseId: manifest.id,
-    figmaNodeId: manifest.figma.nodeId,
-    runtime: { url: manifest.runtime.url, viewport: manifest.runtime.viewport },
-    auth: manifest.auth ? { kind: manifest.auth.kind, role: manifest.auth.role, verified: true } : undefined,
-    verdict,
-    gates: {
-      visual,
-      content: findings.some((finding) => finding.status === 'FAIL') ? 'FAIL' : 'PASS',
-      pixelParityComparable: !hasVariableContent,
-    },
-    findings,
-    notes: hasVariableContent
-      ? [
-          'Pixel gate advisory only: variable content requires aligned fixtures or explicit verified masking.',
-        ]
-      : [],
-    diagnostic: visual !== 'PASS' ? diagnostic : undefined,
-    artifacts: { figma: figmaPath, runtime: resolve(outDir, 'runtime.png'), uimatch: outDir },
-  };
-  await writeFile(resolve(outDir, 'qa-report.json'), JSON.stringify(report, null, 2) + '\n');
-  process.stdout.write(`${verdict} | ${manifest.id} | ${resolve(outDir, 'qa-report.json')}\n`);
-  if (verdict !== 'VERIFIED') process.exitCode = 1;
+    const verdict = decideVerdict(visual, findings, hasVariableContent);
+    const report = {
+      schemaVersion: 1,
+      caseId: manifest.id,
+      figmaNodeId: manifest.figma.nodeId,
+      runtime: { url: manifest.runtime.url, viewport: manifest.runtime.viewport },
+      auth: manifest.auth
+        ? { kind: manifest.auth.kind, role: manifest.auth.role, verified: true }
+        : undefined,
+      verdict,
+      gates: {
+        visual,
+        content: findings.some((finding) => finding.status === 'FAIL') ? 'FAIL' : 'PASS',
+        pixelParityComparable: !hasVariableContent,
+      },
+      findings,
+      notes: hasVariableContent
+        ? [
+            'Pixel gate advisory only: variable content requires aligned fixtures or explicit verified masking.',
+          ]
+        : [],
+      diagnostic: visual !== 'PASS' ? diagnostic : undefined,
+      artifacts: { figma: figmaPath, runtime: resolve(outDir, 'runtime.png'), uimatch: outDir },
+    };
+    await writeFile(resolve(outDir, 'qa-report.json'), JSON.stringify(report, null, 2) + '\n');
+    process.stdout.write(`${verdict} | ${manifest.id} | ${resolve(outDir, 'qa-report.json')}\n`);
+    if (verdict !== 'VERIFIED') process.exitCode = 1;
   } finally {
     await session.cleanup();
   }

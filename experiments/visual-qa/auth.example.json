@@ -22,7 +22,12 @@
   },
   "content": [
     { "policy": "exact", "selector": "[data-testid='page-title']", "expected": "My Membership" },
-    { "policy": "dynamic", "selector": "[data-testid='member-name']", "nonEmpty": true, "noOverflow": true }
+    {
+      "policy": "dynamic",
+      "selector": "[data-testid='member-name']",
+      "nonEmpty": true,
+      "noOverflow": true
+    }
   ],
   "output": "./artifacts"
 }

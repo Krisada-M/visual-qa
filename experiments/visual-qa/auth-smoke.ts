@@ -1,10 +1,10 @@
+import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { createServer, type IncomingMessage } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '@playwright/test';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const runner = join(root, 'packages/uimatch-cli/src/visual-qa/run.ts');
@@ -22,17 +22,27 @@ function isMember(request: IncomingMessage): boolean {
   return request.headers.cookie?.split(';').some((s) => s.trim() === 'qa_auth=member') ?? false;
 }
 
-async function runCase(path: string, env: Record<string, string> = {}): Promise<{ code: number; output: string }> {
+async function runCase(
+  path: string,
+  env: Record<string, string> = {}
+): Promise<{ code: number; output: string }> {
   return new Promise((done, reject) => {
-    const child = spawn(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-      ['exec', 'tsx', runner, path], {
+    const child = spawn(
+      process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+      ['exec', 'tsx', runner, path],
+      {
         cwd: root,
         env: { ...process.env, ...env },
         stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      }
+    );
     let output = '';
-    child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); });
-    child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString('utf8'); });
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      output += chunk.toString('utf8');
+    });
     child.on('error', reject);
     child.on('close', (code) => done({ code: code ?? 2, output }));
   });
@@ -84,12 +94,19 @@ async function main(): Promise<void> {
     const browser = await chromium.launch({ headless: true });
     try {
       const context = await browser.newContext({
-        viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 1,
       });
       try {
-        await context.addCookies([{
-          name: 'qa_auth', value: 'member', url: origin, httpOnly: true, sameSite: 'Lax',
-        }]);
+        await context.addCookies([
+          {
+            name: 'qa_auth',
+            value: 'member',
+            url: origin,
+            httpOnly: true,
+            sameSite: 'Lax',
+          },
+        ]);
         const page = await context.newPage();
         await page.goto(`${origin}/member`);
         await page.locator('#app').screenshot({ path: join(directory, 'reference.png') });
@@ -106,7 +123,8 @@ async function main(): Promise<void> {
       id: 'auth-member-smoke',
       figma: { nodeId: 'fixture:1', screenshot: './reference.png' },
       runtime: {
-        url: `${origin}/member`, selector: '#app',
+        url: `${origin}/member`,
+        selector: '#app',
         viewport: { width: 390, height: 844 },
       },
       content: [
@@ -116,37 +134,61 @@ async function main(): Promise<void> {
       output: './artifacts',
     };
 
-    await writeFile(casePath, JSON.stringify({
-      ...expected,
-      auth: {
-        kind: 'storage-state', role: 'member',
-        path: './authenticated-state.json', readySelector: '#member-root',
-      },
-    }));
+    await writeFile(
+      casePath,
+      JSON.stringify({
+        ...expected,
+        auth: {
+          kind: 'storage-state',
+          role: 'member',
+          path: './authenticated-state.json',
+          readySelector: '#member-root',
+        },
+      })
+    );
     const reused = await runCase(casePath);
-    const report = JSON.parse(await readFile(join(directory, 'artifacts/qa-report.json'), 'utf8')) as {
-      verdict: string; auth?: { role: string };
+    const report = JSON.parse(
+      await readFile(join(directory, 'artifacts/qa-report.json'), 'utf8')
+    ) as {
+      verdict: string;
+      auth?: { role: string };
     };
     if (reused.code !== 0 || report.verdict !== 'VERIFIED' || report.auth?.role !== 'member') {
       throw new Error(`StorageState reuse should VERIFIED: ${reused.output}`);
     }
 
-    await writeFile(casePath, JSON.stringify({
-      ...expected,
-      auth: {
-        kind: 'ui-login', role: 'member', loginUrl: `${origin}/login`,
-        usernameSelector: '#user', passwordSelector: '#pass',
-        submitSelector: '#submit', readySelector: '#member-root',
-        usernameEnv: 'QA_TEST_USERNAME', passwordEnv: 'QA_TEST_PASSWORD',
-      },
-    }));
+    await writeFile(
+      casePath,
+      JSON.stringify({
+        ...expected,
+        auth: {
+          kind: 'ui-login',
+          role: 'member',
+          loginUrl: `${origin}/login`,
+          usernameSelector: '#user',
+          passwordSelector: '#pass',
+          submitSelector: '#submit',
+          readySelector: '#member-root',
+          usernameEnv: 'QA_TEST_USERNAME',
+          passwordEnv: 'QA_TEST_PASSWORD',
+        },
+      })
+    );
     const loggedIn = await runCase(casePath, {
-      QA_TEST_USERNAME: 'qa-member', QA_TEST_PASSWORD: 'test-only',
+      QA_TEST_USERNAME: 'qa-member',
+      QA_TEST_PASSWORD: 'test-only',
     });
-    const loginReport = JSON.parse(await readFile(join(directory, 'artifacts/qa-report.json'), 'utf8')) as {
-      verdict: string; auth?: { kind: string };
+    const loginReport = JSON.parse(
+      await readFile(join(directory, 'artifacts/qa-report.json'), 'utf8')
+    ) as {
+      verdict: string;
+      auth?: { kind: string };
     };
-    if (loggedIn.code !== 0 || loginReport.verdict !== 'VERIFIED' || loginReport.auth?.kind !== 'ui-login') {
+    if (
+      loggedIn.code !== 0 ||
+      loginReport.verdict !== 'VERIFIED' ||
+      loginReport.auth?.kind !== 'ui-login'
+    ) {
       throw new Error(`UI login should VERIFIED: ${loggedIn.output}`);
     }
     const serializedReport = await readFile(join(directory, 'artifacts/qa-report.json'), 'utf8');
@@ -155,19 +197,26 @@ async function main(): Promise<void> {
     }
 
     await writeFile(join(directory, 'expired.json'), JSON.stringify({ cookies: [], origins: [] }));
-    await writeFile(casePath, JSON.stringify({
-      ...expected,
-      auth: {
-        kind: 'storage-state', role: 'member',
-        path: './expired.json', readySelector: '#member-root',
-      },
-    }));
+    await writeFile(
+      casePath,
+      JSON.stringify({
+        ...expected,
+        auth: {
+          kind: 'storage-state',
+          role: 'member',
+          path: './expired.json',
+          readySelector: '#member-root',
+        },
+      })
+    );
     const expired = await runCase(casePath);
     if (expired.code !== 2 || !expired.output.includes('Visual QA BLOCKED')) {
       throw new Error(`Unauthenticated redirect must BLOCK, got: ${expired.output}`);
     }
 
-    process.stdout.write('P1 authenticated smoke passed: stored session + UI login VERIFIED, expired session BLOCKED\n');
+    process.stdout.write(
+      'P1 authenticated smoke passed: stored session + UI login VERIFIED, expired session BLOCKED\n'
+    );
   } finally {
     await new Promise<void>((done) => server.close(() => done()));
     await rm(directory, { recursive: true, force: true });
