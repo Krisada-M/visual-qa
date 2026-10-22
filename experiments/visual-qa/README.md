@@ -51,3 +51,24 @@ not a valid acceptance gate. `BLOCKED` means the comparison could not run.
   disposable/staging fixtures you are authorized to inspect.
 - Pin viewport, browser version, fonts, OS, and Figma export scale for reliable
   pixel comparisons. File-image bypass provides pixels, not Figma style metadata.
+
+## P1 — Authenticated Visual QA
+
+- `storage-state`: point `auth.path` at a Playwright storageState JSON file
+  created by an authorized test login. Never commit this file.
+- `ui-login`: configure test-only login URL and form selectors, referencing
+  credentials by environment-variable name (not values). The runner logs in,
+  verifies the protected route and role-specific landmark, creates a temporary
+  storageState file, and deletes it after the comparison.
+- See `auth.example.json` and test with
+  `UIMATCH_CHROME_CHANNEL=chrome pnpm exec tsx experiments/visual-qa/auth-smoke.ts`.
+
+The same storageState file is used independently by Playwright content capture
+and uiMatch comparison. A route guard rejects silent redirects to login.
+`UIMATCH_STORAGE_STATE_PATH`, `UIMATCH_EXPECTED_URL`, and
+`UIMATCH_READY_SELECTOR` are internal bridge environment variables.
+
+**Limits:** storageState does not capture sessionStorage, and session expiry
+between captures is possible. No authenticated BP Member/Staff/Admin test has
+been performed. Run only with disposable QA accounts; never commit credentials,
+cookies, screenshots containing personal data, or storageState artifacts.

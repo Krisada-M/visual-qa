@@ -26,3 +26,6 @@ description: Verify Figma-to-runtime UI conformance using Figwright exports, Pla
 
 This P0 is not full behavioral or accessibility certification. Use existing
 Playwright/Cypress functional suites and FRD-based acceptance tests separately.
+
+8. On protected pages use the explicit auth config and a role-specific
+   readySelector. A redirect to Login must be BLOCKED, not visually compared.

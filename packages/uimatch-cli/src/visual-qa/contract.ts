@@ -14,6 +14,30 @@ export const ContentRuleSchema = z.discriminatedUnion('policy', [
   z.object({ policy: z.literal('optional'), selector: Selector }),
 ]);
 
+const EnvironmentKey = z.string().regex(/^[A-Z][A-Z0-9_]*$/);
+
+export const AuthenticationSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('storage-state'),
+    role: z.enum(['member', 'staff', 'admin', 'other']),
+    path: z.string().min(1),
+    readySelector: Selector,
+  }),
+  z.object({
+    kind: z.literal('ui-login'),
+    role: z.enum(['member', 'staff', 'admin', 'other']),
+    loginUrl: z.string().url(),
+    usernameSelector: Selector,
+    passwordSelector: Selector,
+    submitSelector: Selector,
+    usernameEnv: EnvironmentKey,
+    passwordEnv: EnvironmentKey,
+    readySelector: Selector,
+  }),
+]);
+
+export type AuthenticationConfig = z.infer<typeof AuthenticationSchema>;
+
 export const ManifestSchema = z.object({
   id: z.string().min(1),
   figma: z.object({
@@ -28,6 +52,7 @@ export const ManifestSchema = z.object({
       height: z.number().int().positive().max(8192),
     }),
   }),
+  auth: AuthenticationSchema.optional(),
   content: z.array(ContentRuleSchema).default([]),
   output: z.string().min(1).default('artifacts/visual-qa'),
 });

@@ -23,10 +23,15 @@ jobs:
       - run: HUSKY=0 pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run build
-      - run: pnpm exec vitest run packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa/contract.test.ts
+      - run: pnpm exec vitest run packages/uimatch-core/src/adapters/playwright/route-guard.test.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa/contract.test.ts packages/uimatch-cli/src/visual-qa/auth.test.ts
       - run: pnpm exec tsx experiments/visual-qa/smoke.ts
         env:
           UIMATCH_CHROME_CHANNEL: chrome
           UIMATCH_CHROMIUM_SANDBOX: 'true'
+      - run: pnpm exec tsx experiments/visual-qa/auth-smoke.ts
+        env:
+          UIMATCH_CHROME_CHANNEL: chrome
+          UIMATCH_CHROMIUM_SANDBOX: 'true'
       - run: pnpm run type-check
-      - run: pnpm exec prettier --check packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
+      - run: pnpm run lint
+      - run: pnpm exec prettier --check packages/uimatch-core/src/adapters/playwright.ts packages/uimatch-core/src/adapters/browser-pool.ts packages/uimatch-core/src/adapters/playwright/route-guard.ts packages/uimatch-core/src/adapters/playwright/route-guard.test.ts packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp

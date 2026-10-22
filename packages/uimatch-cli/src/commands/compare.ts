@@ -10,6 +10,7 @@ import type { CompareArgs, CompareResult, FigmaRootDimensionConstraint } from '#
 import type { CaptureResult, CompareImageResult } from '@uimatch/core';
 import {
   UiMatchError,
+  assertSameRoute,
   browserPool,
   captureTarget,
   compareImages,
@@ -228,6 +229,7 @@ async function maybeResolveSelectorWithPlugin(
       viewport: args.viewport,
       deviceScaleFactor: args.dpr ?? 2,
       httpCredentials: args.basicAuth,
+      storageState: args.storageState ?? process.env.UIMATCH_STORAGE_STATE_PATH,
     };
     if (reuseBrowser) {
       openedContext = await browserPool.createContext(contextOptions);
@@ -253,6 +255,12 @@ async function maybeResolveSelectorWithPlugin(
       pluginId,
       pluginDeadlineAt
     );
+    const expectedUrl = args.expectedUrl ?? process.env.UIMATCH_EXPECTED_URL;
+    const readySelector = args.readySelector ?? process.env.UIMATCH_READY_SELECTOR;
+    if (expectedUrl) assertSameRoute(expectedUrl, page.url());
+    if (readySelector) {
+      await page.locator(readySelector).waitFor({ state: 'visible', timeout: 6000 });
+    }
 
     // Detect Storybook iframe (/iframe.html takes precedence over mainFrame)
     // This ensures probe checks the same frame as captureTarget will use
@@ -563,6 +571,9 @@ export async function uiMatchCompare(args: CompareArgs): Promise<CompareResult> 
     fontPreloads: args.fontPreload,
     idleWaitMs: settings.capture.defaultIdleWaitMs,
     reuseBrowser,
+    storageState: args.storageState ?? process.env.UIMATCH_STORAGE_STATE_PATH,
+    expectedUrl: args.expectedUrl ?? process.env.UIMATCH_EXPECTED_URL,
+    readySelector: args.readySelector ?? process.env.UIMATCH_READY_SELECTOR,
     basicAuth:
       args.basicAuth ??
       (process.env.BASIC_AUTH_USER && process.env.BASIC_AUTH_PASS

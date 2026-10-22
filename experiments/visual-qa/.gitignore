@@ -1,3 +1,6 @@
 case.json
+auth.json
+*-state.json
+**/.auth/
 artifacts/
 *.png

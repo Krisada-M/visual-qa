@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import { assertSameRoute } from '@uimatch/core';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
@@ -11,6 +12,7 @@ import {
   type ContentFinding,
   type ContentObservation,
 } from './contract.js';
+import { prepareAuth } from './auth.js';
 
 function targetUrlAllowed(raw: string): boolean {
   const url = new URL(raw);
@@ -24,7 +26,9 @@ async function runCompare(
   selector: string,
   viewport: string,
   figmaPath: string,
-  outDir: string
+  outDir: string,
+  statePath?: string,
+  readySelector?: string
 ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
   const cli = fileURLToPath(new URL('../../dist/cli/index.js', import.meta.url));
   await stat(cli);
@@ -44,7 +48,14 @@ async function runCompare(
   return new Promise((ok, reject) => {
     const child = spawn(process.execPath, argv, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, UIMATCH_FIGMA_PNG_B64: '', UIMATCH_FIGMA_PNG_PATH: figmaPath },
+      env: {
+        ...process.env,
+        UIMATCH_FIGMA_PNG_B64: '',
+        UIMATCH_FIGMA_PNG_PATH: figmaPath,
+        UIMATCH_STORAGE_STATE_PATH: statePath,
+        UIMATCH_EXPECTED_URL: url,
+        UIMATCH_READY_SELECTOR: readySelector,
+      },
     });
     let stderr = '';
     let stdout = '';
@@ -89,6 +100,8 @@ async function main(): Promise<void> {
   await stat(figmaPath);
   await mkdir(outDir, { recursive: true });
 
+  const session = await prepareAuth(manifest.auth, manifest.runtime.url, base);
+  try {
   const findings: ContentFinding[] = [];
   let visual: 'PASS' | 'FAIL' | 'BLOCKED' = 'BLOCKED';
   let diagnostic = '';
@@ -97,10 +110,15 @@ async function main(): Promise<void> {
     const context = await browser.newContext({
       viewport: manifest.runtime.viewport,
       deviceScaleFactor: 1,
+      storageState: session.statePath,
     });
     try {
       const page = await context.newPage();
       await page.goto(manifest.runtime.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      assertSameRoute(manifest.runtime.url, page.url());
+      if (session.readySelector) {
+        await page.locator(session.readySelector).waitFor({ state: 'visible', timeout: 10_000 });
+      }
       const target = page.locator(manifest.runtime.selector);
       await target.waitFor({ state: 'visible', timeout: 10_000 });
       await target.screenshot({ path: resolve(outDir, 'runtime.png'), animations: 'disabled' });
@@ -135,9 +153,12 @@ async function main(): Promise<void> {
       manifest.runtime.selector,
       `${manifest.runtime.viewport.width}x${manifest.runtime.viewport.height}`,
       figmaPath,
-      outDir
+      outDir,
+      session.statePath,
+      session.readySelector
     );
     visual = compared.exitCode === 0 ? 'PASS' : compared.exitCode === 1 ? 'FAIL' : 'BLOCKED';
+    if (compared.stderr.includes('UIMATCH_AUTH_ROUTE_MISMATCH')) visual = 'BLOCKED';
     diagnostic = `${compared.stderr}\n${compared.stdout}`.trim();
   } catch (error) {
     diagnostic = error instanceof Error ? error.message : String(error);
@@ -152,6 +173,7 @@ async function main(): Promise<void> {
     caseId: manifest.id,
     figmaNodeId: manifest.figma.nodeId,
     runtime: { url: manifest.runtime.url, viewport: manifest.runtime.viewport },
+    auth: manifest.auth ? { kind: manifest.auth.kind, role: manifest.auth.role, verified: true } : undefined,
     verdict,
     gates: {
       visual,
@@ -170,6 +192,9 @@ async function main(): Promise<void> {
   await writeFile(resolve(outDir, 'qa-report.json'), JSON.stringify(report, null, 2) + '\n');
   process.stdout.write(`${verdict} | ${manifest.id} | ${resolve(outDir, 'qa-report.json')}\n`);
   if (verdict !== 'VERIFIED') process.exitCode = 1;
+  } finally {
+    await session.cleanup();
+  }
 }
 
 main().catch((error: unknown) => {

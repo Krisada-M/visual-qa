@@ -1,0 +1,28 @@
+{
+  "id": "member-dashboard-auth",
+  "figma": {
+    "nodeId": "REPLACE_WITH_FIGWRIGHT_NODE_ID",
+    "screenshot": "./figma-member.png"
+  },
+  "runtime": {
+    "url": "http://127.0.0.1:3000/member",
+    "selector": "[data-testid='member-dashboard']",
+    "viewport": { "width": 390, "height": 844 }
+  },
+  "auth": {
+    "kind": "ui-login",
+    "role": "member",
+    "loginUrl": "http://127.0.0.1:3000/login",
+    "usernameSelector": "[name='identifier']",
+    "passwordSelector": "[name='password']",
+    "submitSelector": "button[type='submit']",
+    "usernameEnv": "QA_MEMBER_USERNAME",
+    "passwordEnv": "QA_MEMBER_PASSWORD",
+    "readySelector": "[data-testid='member-dashboard']"
+  },
+  "content": [
+    { "policy": "exact", "selector": "[data-testid='page-title']", "expected": "My Membership" },
+    { "policy": "dynamic", "selector": "[data-testid='member-name']", "nonEmpty": true, "noOverflow": true }
+  ],
+  "output": "./artifacts"
+}

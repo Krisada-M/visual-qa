@@ -28,3 +28,9 @@ dynamic content. An implementation-versus-Figma style audit requires
 get_design_context evidence in addition to PNG pixels.
 
 See [experiment README](../../experiments/visual-qa/README.md) for run steps.
+
+## P1 authenticated capture
+
+Supports test-only UI login or existing Playwright storageState through
+`experiments/visual-qa/auth.example.json`. The auth smoke runs against a
+loopback web app and does not require real user credentials.
