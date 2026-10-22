@@ -40,21 +40,26 @@ async function runCase(path: string, env: Record<string, string> = {}): Promise<
 
 async function main(): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), 'visual-qa-p1-'));
-  const server = createServer(async (request, response) => {
+  const server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
     if (path === '/login' && request.method === 'POST') {
       let input = '';
-      for await (const part of request) input += part.toString();
-      const form = new URLSearchParams(input);
-      if (form.get('user') === 'qa-member' && form.get('pass') === 'test-only') {
-        response.writeHead(303, {
-          location: '/member',
-          'set-cookie': 'qa_auth=member; Path=/; HttpOnly; SameSite=Lax',
-        });
-      } else {
-        response.writeHead(303, { location: '/login' });
-      }
-      response.end();
+      request.setEncoding('utf8');
+      request.on('data', (part: string) => {
+        input += part;
+      });
+      request.on('end', () => {
+        const form = new URLSearchParams(input);
+        if (form.get('user') === 'qa-member' && form.get('pass') === 'test-only') {
+          response.writeHead(303, {
+            location: '/member',
+            'set-cookie': 'qa_auth=member; Path=/; HttpOnly; SameSite=Lax',
+          });
+        } else {
+          response.writeHead(303, { location: '/login' });
+        }
+        response.end();
+      });
       return;
     }
     if (path === '/member') {
