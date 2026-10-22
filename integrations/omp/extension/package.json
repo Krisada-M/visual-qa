@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "omp": {
-    "extensions": ["./index.js"]
+    "extensions": [
+      "./index.js"
+    ]
   }
 }
