@@ -167,7 +167,7 @@ async function main(): Promise<void> {
           : visual === 'BLOCKED'
             ? 'AUTH_OR_COMPARISON_BLOCKED'
             : 'VISUAL_COMPARISON_FAILED';
-    } catch (error) {
+    } catch {
       diagnostic = 'VISUAL_COMPARISON_UNAVAILABLE';
     }
 
