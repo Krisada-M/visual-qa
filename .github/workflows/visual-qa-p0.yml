@@ -34,6 +34,8 @@ jobs:
         env:
           UIMATCH_CHROME_CHANNEL: chrome
           UIMATCH_CHROMIUM_SANDBOX: 'true'
+      - name: OMP command integration smoke
+        run: node integrations/omp/extension/smoke.mjs
       - name: Verify mapping suggestions
         run: pnpm exec tsx packages/uimatch-cli/src/visual-qa/mapping-suggest.ts experiments/visual-qa/mapping-index.example.json
       - run: pnpm run type-check
