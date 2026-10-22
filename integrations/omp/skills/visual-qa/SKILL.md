@@ -29,3 +29,9 @@ Playwright/Cypress functional suites and FRD-based acceptance tests separately.
 
 8. On protected pages use the explicit auth config and a role-specific
    readySelector. A redirect to Login must be BLOCKED, not visually compared.
+
+9. For batches, run the mapping-suggest command for hints only, manually
+   confirm each frame ↔ route ↔ state, validate screenshot SHA-256 and date
+   in suite manifest, then run suite.ts. BLOCK unconfirmed matches.
+10. A V1 VERIFIED result covers visual and explicit content checks only.
+    Do not treat it as FRD, accessibility or interaction sign-off.

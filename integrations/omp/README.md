@@ -34,3 +34,10 @@ See [experiment README](../../experiments/visual-qa/README.md) for run steps.
 Supports test-only UI login or existing Playwright storageState through
 `experiments/visual-qa/auth.example.json`. The auth smoke runs against a
 loopback web app and does not require real user credentials.
+
+## V1 batch and mapping
+
+`mapping-suggest.ts` ranks Figma frame and runtime route/state candidates but
+**never auto-confirms**. `suite.ts` verifies explicit mappings and PNG hashes
+before sequential P1 comparisons. See experiment README for commands and
+limits. This integration does not install a native OMP extension.

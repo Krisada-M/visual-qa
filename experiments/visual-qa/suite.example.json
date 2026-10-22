@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "Visual QA acceptance suite",
+  "cases": [
+    {
+      "name": "Member dashboard default",
+      "manifest": "./auth.json",
+      "mapping": {
+        "confirmed": true,
+        "figmaNodeId": "REPLACE_WITH_FIGMA_NODE_ID",
+        "runtimePath": "/member",
+        "state": "authenticated-default"
+      },
+      "snapshot": {
+        "source": "figwright",
+        "exportedAt": "2026-10-22T08:00:00.000Z",
+        "sha256": "REPLACE_WITH_64_CHARACTER_SHA256",
+        "maxAgeHours": 720
+      }
+    }
+  ]
+}

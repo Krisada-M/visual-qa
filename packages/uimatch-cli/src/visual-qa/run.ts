@@ -159,9 +159,16 @@ async function main(): Promise<void> {
       );
       visual = compared.exitCode === 0 ? 'PASS' : compared.exitCode === 1 ? 'FAIL' : 'BLOCKED';
       if (compared.stderr.includes('UIMATCH_AUTH_ROUTE_MISMATCH')) visual = 'BLOCKED';
-      diagnostic = `${compared.stderr}\n${compared.stdout}`.trim();
+      // Keep reports free of query-string tokens, cookies and auth redirects.
+      // Raw upstream diagnostics are intentionally not persisted.
+      diagnostic =
+        compared.exitCode === 0
+          ? ''
+          : visual === 'BLOCKED'
+            ? 'AUTH_OR_COMPARISON_BLOCKED'
+            : 'VISUAL_COMPARISON_FAILED';
     } catch (error) {
-      diagnostic = error instanceof Error ? error.message : String(error);
+      diagnostic = 'VISUAL_COMPARISON_UNAVAILABLE';
     }
 
     const hasVariableContent = manifest.content.some(
@@ -173,7 +180,7 @@ async function main(): Promise<void> {
       schemaVersion: 1,
       caseId: manifest.id,
       figmaNodeId: manifest.figma.nodeId,
-      runtime: { url: manifest.runtime.url, viewport: manifest.runtime.viewport },
+      runtime: { url: new URL(manifest.runtime.url).origin + new URL(manifest.runtime.url).pathname, viewport: manifest.runtime.viewport },
       auth: manifest.auth
         ? { kind: manifest.auth.kind, role: manifest.auth.role, verified: true }
         : undefined,
@@ -184,6 +191,7 @@ async function main(): Promise<void> {
         pixelParityComparable: !hasVariableContent,
       },
       findings,
+      scope: { assessed: ['visual', 'content'], notAssessed: ['FRD', 'accessibility', 'functional-interactions'] },
       notes: hasVariableContent
         ? [
             'Pixel gate advisory only: variable content requires aligned fixtures or explicit verified masking.',

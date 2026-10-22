@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage } from 'node:http';
@@ -8,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const runner = join(root, 'packages/uimatch-cli/src/visual-qa/run.ts');
+const suiteRunner = join(root, 'packages/uimatch-cli/src/visual-qa/suite.ts');
 const markup = `<!doctype html><html><head><style>
 body { margin: 0; font-family: Arial, sans-serif; background: #fff; }
 #app { box-sizing: border-box; width: 320px; margin: 20px; padding: 24px;
@@ -24,12 +26,13 @@ function isMember(request: IncomingMessage): boolean {
 
 async function runCase(
   path: string,
-  env: Record<string, string> = {}
+  env: Record<string, string> = {},
+  script: string = runner
 ): Promise<{ code: number; output: string }> {
   return new Promise((done, reject) => {
     const child = spawn(
       process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-      ['exec', 'tsx', runner, path],
+      ['exec', 'tsx', script, path],
       {
         cwd: root,
         env: { ...process.env, ...env },
@@ -196,6 +199,46 @@ async function main(): Promise<void> {
       throw new Error('QA report exposed auth material');
     }
 
+
+    // P2: suite preflight checks confirmed frame/state mapping, snapshot hash,
+    // freshness, then repeats the authenticated P1 comparison.
+    const suitePath = join(directory, 'suite.json');
+    const imageDigest = createHash('sha256')
+      .update(await readFile(join(directory, 'reference.png')))
+      .digest('hex');
+    const suiteCase = {
+      name: 'Member authenticated default',
+      manifest: './case.json',
+      mapping: { confirmed: true, figmaNodeId: 'fixture:1', runtimePath: '/member', state: 'default' },
+      snapshot: {
+        source: 'approved-fixture',
+        exportedAt: new Date().toISOString(),
+        sha256: imageDigest,
+        maxAgeHours: 12,
+      },
+    };
+    const suiteData = { version: 1, name: 'P2 authenticated visual regression', cases: [suiteCase] };
+    await writeFile(suitePath, JSON.stringify(suiteData));
+    const checked = await runCase(suitePath, {
+      QA_TEST_USERNAME: 'qa-member',
+      QA_TEST_PASSWORD: 'test-only',
+    }, suiteRunner);
+    const suiteReport = JSON.parse(
+      await readFile(join(directory, 'suite-artifacts/suite-report.json'), 'utf8')
+    ) as { verdict: string };
+    if (checked.code !== 0 || suiteReport.verdict !== 'VERIFIED') {
+      throw new Error(`Expected confirmed authenticated suite VERIFIED: ${checked.output}`);
+    }
+
+    await writeFile(suitePath, JSON.stringify({
+      ...suiteData,
+      cases: [{ ...suiteCase, snapshot: { ...suiteCase.snapshot, sha256: 'a'.repeat(64) } }],
+    }));
+    const tampered = await runCase(suitePath, {}, suiteRunner);
+    if (tampered.code !== 2 || !tampered.output.includes('BLOCKED')) {
+      throw new Error(`Tampered snapshot must BLOCK: ${tampered.output}`);
+    }
+
     await writeFile(join(directory, 'expired.json'), JSON.stringify({ cookies: [], origins: [] }));
     await writeFile(
       casePath,
@@ -215,7 +258,7 @@ async function main(): Promise<void> {
     }
 
     process.stdout.write(
-      'P1 authenticated smoke passed: stored session + UI login VERIFIED, expired session BLOCKED\n'
+      'P2 smoke passed: storageState, UI login, versioned suite VERIFIED; tampered/expired BLOCKED\n'
     );
   } finally {
     await new Promise<void>((done) => server.close(() => done()));

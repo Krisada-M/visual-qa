@@ -1,0 +1,10 @@
+{
+  "frames": [
+    { "id": "10:25", "name": "Membership dashboard", "state": "default" },
+    { "id": "10:26", "name": "Membership dashboard", "state": "empty" }
+  ],
+  "screens": [
+    { "id": "member-dashboard", "name": "Membership dashboard", "state": "default", "path": "/member/dashboard" },
+    { "id": "member-dashboard-empty", "name": "Membership dashboard", "state": "empty", "path": "/member/dashboard" }
+  ]
+}
