@@ -37,9 +37,7 @@ describe('Figwright PNG bypass', () => {
     const bytes = validPng();
     const b64 = bytes.toString('base64');
     expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: b64 })).toBe(b64);
-    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: `data:image/png;base64,${b64}` })).toBe(
-      b64
-    );
+    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: `data:image/png;base64,${b64}` })).toBe(b64);
   });
 
   it('keeps inline input precedence but rejects a forged payload', () => {
@@ -53,9 +51,7 @@ describe('Figwright PNG bypass', () => {
 
   it('rejects malformed and noncanonical base64 before decode', () => {
     expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: '!@#?' })).toThrow('malformed');
-    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: 'AAAA====' })).toThrow(
-      'malformed'
-    );
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: 'AAAA====' })).toThrow('malformed');
   });
 
   it('rejects oversized inline input before allocating a buffer', () => {
@@ -65,8 +61,9 @@ describe('Figwright PNG bypass', () => {
   });
 
   it('rejects non-PNG files and excessive PNG dimensions', () => {
-    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: fixture(Buffer.from('not png')) }))
-      .toThrow('valid PNG');
+    expect(() =>
+      readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: fixture(Buffer.from('not png')) })
+    ).toThrow('valid PNG');
     const header = Buffer.alloc(24);
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(header);
     header.writeUInt32BE(13, 8);

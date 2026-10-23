@@ -13,11 +13,27 @@ const suiteRunner = resolve(repoRoot, 'packages/uimatch-cli/src/visual-qa/suite.
 const ALLOWED_TOOL_NAMES = ['visual_qa_status', 'visual_qa_preflight', 'visual_qa_run_suite'];
 const MAX_PNG_BYTES = 32 * 1024 * 1024;
 const CHILD_ENV_KEYS = new Set([
-  'PATH', 'HOME', 'USER', 'TMPDIR', 'TMP', 'TEMP', 'SystemRoot', 'WINDIR',
-  'APPDATA', 'LOCALAPPDATA', 'PNPM_HOME', 'COREPACK_HOME',
-  'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'PLAYWRIGHT_BROWSERS_PATH',
-  'UIMATCH_CHROME_CHANNEL', 'UIMATCH_CHROMIUM_SANDBOX',
-  'LANG', 'LC_ALL', 'CI', 'NO_COLOR',
+  'PATH',
+  'HOME',
+  'USER',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'SystemRoot',
+  'WINDIR',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'PNPM_HOME',
+  'COREPACK_HOME',
+  'XDG_CACHE_HOME',
+  'XDG_CONFIG_HOME',
+  'PLAYWRIGHT_BROWSERS_PATH',
+  'UIMATCH_CHROME_CHANNEL',
+  'UIMATCH_CHROMIUM_SANDBOX',
+  'LANG',
+  'LC_ALL',
+  'CI',
+  'NO_COLOR',
 ]);
 let activeSuite = false;
 
@@ -153,10 +169,7 @@ async function allowedSuite(input) {
         throw new Error('REMOTE_LOGIN_NOT_ALLOWED');
       }
       const authKeys = allowedAuthKeys();
-      if (
-        !authKeys.has(manifest.auth.usernameEnv) ||
-        !authKeys.has(manifest.auth.passwordEnv)
-      ) {
+      if (!authKeys.has(manifest.auth.usernameEnv) || !authKeys.has(manifest.auth.passwordEnv)) {
         throw new Error('AUTH_ENV_NOT_ALLOWLISTED');
       }
     }

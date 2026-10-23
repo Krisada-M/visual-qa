@@ -73,21 +73,30 @@ try {
   const manifest = {
     id: 'mcp-smoke',
     figma: { nodeId: '1:2', screenshot: './figma.png' },
-    runtime: { url: 'http://127.0.0.1:3000/member', selector: '#app',
-      viewport: { width: 390, height: 844 } },
+    runtime: {
+      url: 'http://127.0.0.1:3000/member',
+      selector: '#app',
+      viewport: { width: 390, height: 844 },
+    },
     output: './artifacts',
   };
   await writeFile(join(dir, 'cases', 'manifest.json'), JSON.stringify(manifest));
-  await writeFile(join(dir, 'cases', 'suite.json'), JSON.stringify({
-    version: 1, cases: [{ manifest: 'manifest.json' }],
-  }));
+  await writeFile(
+    join(dir, 'cases', 'suite.json'),
+    JSON.stringify({
+      version: 1,
+      cases: [{ manifest: 'manifest.json' }],
+    })
+  );
   const permitted = await request(7, 'tools/call', {
-    name: 'visual_qa_preflight', arguments: { suite: 'cases/suite.json' },
+    name: 'visual_qa_preflight',
+    arguments: { suite: 'cases/suite.json' },
   });
   assert.equal(JSON.parse(permitted.result.content[0].text).permitted, true);
 
   const runDenied = await request(8, 'tools/call', {
-    name: 'visual_qa_run_suite', arguments: { suite: 'cases/suite.json' },
+    name: 'visual_qa_run_suite',
+    arguments: { suite: 'cases/suite.json' },
   });
   assert.equal(runDenied.result.isError, true);
   assert.equal(runDenied.result.content[0].text, 'REMOTE_RUN_DISABLED');
@@ -96,7 +105,8 @@ try {
   try {
     await symlink(outside, join(dir, 'cases', 'suite-artifacts'), 'dir');
     const escaped = await request(9, 'tools/call', {
-      name: 'visual_qa_preflight', arguments: { suite: 'cases/suite.json' },
+      name: 'visual_qa_preflight',
+      arguments: { suite: 'cases/suite.json' },
     });
     assert.equal(escaped.result.isError, true);
     assert.equal(escaped.result.content[0].text, 'UNSAFE_OUTPUT_PATH');
@@ -104,7 +114,9 @@ try {
     await rm(outside, { recursive: true, force: true });
   }
 
-  process.stdout.write('Secure MCP handshake, authorization and filesystem boundary tests passed\n');
+  process.stdout.write(
+    'Secure MCP handshake, authorization and filesystem boundary tests passed\n'
+  );
 } finally {
   host.kill('SIGTERM');
   await rm(dir, { recursive: true, force: true });
