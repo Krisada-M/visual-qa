@@ -43,3 +43,13 @@ jobs:
       - run: pnpm run type-check
       - run: pnpm run lint
       - run: pnpm exec prettier --check packages/uimatch-core/src/adapters/playwright.ts packages/uimatch-core/src/adapters/browser-pool.ts packages/uimatch-core/src/adapters/playwright/route-guard.ts packages/uimatch-core/src/adapters/playwright/route-guard.test.ts packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp integrations/mcp
+      - name: Collect formatter evidence
+        if: failure()
+        run: |
+          pnpm exec prettier --write integrations/mcp
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const cp = require('node:child_process');
+          const files = cp.execFileSync('git', ['diff', '--name-only'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+          for (const file of files) console.log('FORMAT_BLOB|' + file + '|' + fs.readFileSync(file).toString('base64'));
+          NODE
