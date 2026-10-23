@@ -48,6 +48,12 @@ export interface CaptureOptions {
    * HTTP Basic Authentication credentials.
    */
   basicAuth?: { username: string; password: string };
+  /** Ephemeral Playwright storage state; never include it in reports. */
+  storageState?: string;
+  /** Expected origin and path; reject auth redirects. */
+  expectedUrl?: string;
+  /** A selector that must be visible before capture. */
+  readySelector?: string;
 
   /**
    * Auto-detect and use Storybook iframe (`/iframe.html`).

@@ -17,6 +17,7 @@
     "packages/*/*.config.ts",
     "e2e/**/*.ts",
     "evals/**/*.ts",
+    "experiments/visual-qa/**/*.ts",
     "test-utils/**/*.ts",
     "*.config.ts"
   ]

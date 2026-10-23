@@ -1,0 +1,10 @@
+{
+  "name": "@ksd/visual-qa-omp",
+  "private": true,
+  "type": "module",
+  "omp": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

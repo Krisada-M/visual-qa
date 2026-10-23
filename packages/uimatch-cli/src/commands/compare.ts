@@ -10,6 +10,7 @@ import type { CompareArgs, CompareResult, FigmaRootDimensionConstraint } from '#
 import type { CaptureResult, CompareImageResult } from '@uimatch/core';
 import {
   UiMatchError,
+  assertSameRoute,
   browserPool,
   captureTarget,
   compareImages,
@@ -27,6 +28,7 @@ import {
 } from '@uimatch/selector-spi';
 import { createLogger } from '@uimatch/shared-logging';
 import { resolveColorDeltaEThresholds } from './comparison-thresholds.js';
+import { hasFigmaPngBypass, readFigmaPngBypass } from './figma-png-bypass.js';
 import {
   SelectorPluginTimeoutError,
   getSelectorPluginTimeoutMs,
@@ -227,6 +229,7 @@ async function maybeResolveSelectorWithPlugin(
       viewport: args.viewport,
       deviceScaleFactor: args.dpr ?? 2,
       httpCredentials: args.basicAuth,
+      storageState: args.storageState ?? process.env.UIMATCH_STORAGE_STATE_PATH,
     };
     if (reuseBrowser) {
       openedContext = await browserPool.createContext(contextOptions);
@@ -252,6 +255,12 @@ async function maybeResolveSelectorWithPlugin(
       pluginId,
       pluginDeadlineAt
     );
+    const expectedUrl = args.expectedUrl ?? process.env.UIMATCH_EXPECTED_URL;
+    const readySelector = args.readySelector ?? process.env.UIMATCH_READY_SELECTOR;
+    if (expectedUrl) assertSameRoute(expectedUrl, page.url());
+    if (readySelector) {
+      await page.locator(readySelector).waitFor({ state: 'visible', timeout: 6000 });
+    }
 
     // Detect Storybook iframe (/iframe.html takes precedence over mainFrame)
     // This ensures probe checks the same frame as captureTarget will use
@@ -352,14 +361,6 @@ async function maybeResolveSelectorWithPlugin(
 }
 
 /**
- * Read the Figma PNG supplied directly through the environment, if any.
- */
-function readFigmaPngBypass(): string | undefined {
-  const raw = process.env.UIMATCH_FIGMA_PNG_B64?.trim();
-  return raw ? raw : undefined;
-}
-
-/**
  * Reject a comparison that cannot reach any Figma PNG source.
  * The suite runner calls this for every item before it starts any work, so the
  * check must stay side-effect free and independent of capture state.
@@ -369,7 +370,7 @@ function readFigmaPngBypass(): string | undefined {
  */
 export function assertFigmaSourceConfigured(figma: string): void {
   // Bypass mode never resolves the reference, so an unparseable one is harmless.
-  if (readFigmaPngBypass()) return;
+  if (hasFigmaPngBypass()) return;
 
   let parsed: ReturnType<typeof parseFigmaRef>;
   try {
@@ -570,6 +571,9 @@ export async function uiMatchCompare(args: CompareArgs): Promise<CompareResult> 
     fontPreloads: args.fontPreload,
     idleWaitMs: settings.capture.defaultIdleWaitMs,
     reuseBrowser,
+    storageState: args.storageState ?? process.env.UIMATCH_STORAGE_STATE_PATH,
+    expectedUrl: args.expectedUrl ?? process.env.UIMATCH_EXPECTED_URL,
+    readySelector: args.readySelector ?? process.env.UIMATCH_READY_SELECTOR,
     basicAuth:
       args.basicAuth ??
       (process.env.BASIC_AUTH_USER && process.env.BASIC_AUTH_PASS

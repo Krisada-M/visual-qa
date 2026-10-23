@@ -1,5 +1,6 @@
 export {
   PlaywrightAdapter,
+  assertSameRoute,
   browserPool,
   captureTarget,
   getChromiumLaunchPolicy,

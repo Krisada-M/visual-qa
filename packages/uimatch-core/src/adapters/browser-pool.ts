@@ -51,6 +51,7 @@ class BrowserPool {
     viewport?: { width: number; height: number };
     deviceScaleFactor?: number;
     httpCredentials?: { username: string; password: string };
+    storageState?: string;
   }): Promise<BrowserContext> {
     const browser = await this.getBrowser();
     const context = await browser.newContext(options);

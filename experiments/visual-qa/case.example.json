@@ -1,0 +1,22 @@
+{
+  "id": "bp9-login-default-mobile",
+  "figma": {
+    "nodeId": "REPLACE_WITH_FIGWRIGHT_FRAME_ID",
+    "screenshot": "./figma-login.png"
+  },
+  "runtime": {
+    "url": "http://127.0.0.1:3000/login",
+    "selector": "[data-testid='login-root']",
+    "viewport": { "width": 390, "height": 844 }
+  },
+  "content": [
+    { "policy": "exact", "selector": "[data-testid='submit']", "expected": "Sign in" },
+    {
+      "policy": "dynamic",
+      "selector": "[data-testid='welcome']",
+      "nonEmpty": true,
+      "noOverflow": true
+    }
+  ],
+  "output": "./artifacts"
+}

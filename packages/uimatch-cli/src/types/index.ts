@@ -412,6 +412,12 @@ export interface CompareArgs {
     username: string;
     password: string;
   };
+  /** Playwright storage state for the implementation browser. */
+  storageState?: string;
+  /** Expected URL origin and pathname for rejecting auth redirects. */
+  expectedUrl?: string;
+  /** Authenticated-only landmark. */
+  readySelector?: string;
 
   /**
    * Expected style specification for comparison.

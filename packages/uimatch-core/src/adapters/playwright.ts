@@ -11,6 +11,7 @@ import { browserPool } from './browser-pool';
 import { launchChromium } from './chromium-launch';
 import { DEFAULT_PROPS, EXTENDED_PROPS } from './playwright/constants';
 import { resolveLocator } from './playwright/locator-resolver';
+import { assertSameRoute } from './playwright/route-guard';
 import { createTimeBudget, getE2ETimeBudget, type TimeBudget } from './playwright/time-budget';
 
 const logger = createLogger({ package: '@uimatch/core', module: 'playwright' });
@@ -67,6 +68,7 @@ export class PlaywrightAdapter implements BrowserAdapter {
           viewport: opts.viewport ?? { width: 1440, height: 900 },
           deviceScaleFactor: opts.dpr ?? 2,
           httpCredentials: opts.basicAuth,
+          storageState: opts.storageState,
         });
       } else {
         browser = await launchChromium();
@@ -74,6 +76,7 @@ export class PlaywrightAdapter implements BrowserAdapter {
           viewport: opts.viewport ?? { width: 1440, height: 900 },
           deviceScaleFactor: opts.dpr ?? 2,
           httpCredentials: opts.basicAuth,
+          storageState: opts.storageState,
         });
       }
 
@@ -114,6 +117,10 @@ export class PlaywrightAdapter implements BrowserAdapter {
         }
 
         await page.goto(opts.url, { waitUntil, timeout });
+        if (opts.expectedUrl) assertSameRoute(opts.expectedUrl, page.url());
+        if (opts.readySelector) {
+          await page.locator(opts.readySelector).waitFor({ state: 'visible', timeout: 6000 });
+        }
       } else {
         if (!opts.html) {
           throw new Error('Either url or html must be provided');
