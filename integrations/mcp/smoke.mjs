@@ -6,7 +6,7 @@ import { setTimeout } from 'node:timers';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 
 const dir = await mkdtemp(join(tmpdir(), 'visual-qa-mcp-'));
 const script = fileURLToPath(new URL('./server.mjs', import.meta.url));
