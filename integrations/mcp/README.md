@@ -56,7 +56,7 @@ it connected to a terminal.
 
 Once your Platform organization has created a tunnel ID and a **restricted**
 runtime key with Tunnels Read + Use, configure a local stdio profile following
-the CLI's *live* quickstart help (replace the placeholder ID and absolute path):
+the CLI's _live_ quickstart help (replace the placeholder ID and absolute path):
 
 ```text
 tunnel-client init --sample sample_mcp_stdio_local --profile visual-qa --tunnel-id <TUNNEL_ID> --mcp-command "node /ABS/PATH/visual-qa/integrations/mcp/server.mjs"

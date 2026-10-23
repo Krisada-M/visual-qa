@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
 import { readFile, realpath, stat } from 'node:fs/promises';
-import { relative, resolve, isAbsolute, dirname, sep } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
-import { setTimeout, clearTimeout } from 'node:timers';
-import { fileURLToPath, URL } from 'node:url';
 import { createInterface } from 'node:readline';
+import { clearTimeout, setTimeout } from 'node:timers';
+import { fileURLToPath, URL } from 'node:url';
 
 const name = 'visual-qa-secure-mcp';
 const version = '1.0.0';
@@ -14,7 +14,10 @@ const ALLOWED_TOOL_NAMES = ['visual_qa_status', 'visual_qa_preflight', 'visual_q
 const suiteInput = {
   type: 'object',
   properties: {
-    suite: { type: 'string', description: 'Relative path to a suite.json within VISUAL_QA_CASES_ROOT' },
+    suite: {
+      type: 'string',
+      description: 'Relative path to a suite.json within VISUAL_QA_CASES_ROOT',
+    },
   },
   required: ['suite'],
   additionalProperties: false,
@@ -22,19 +25,22 @@ const suiteInput = {
 const tools = [
   {
     name: ALLOWED_TOOL_NAMES[0],
-    description: 'Report whether the Visual QA MCP adapter is configured. No filesystem contents or secrets are disclosed.',
+    description:
+      'Report whether the Visual QA MCP adapter is configured. No filesystem contents or secrets are disclosed.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false },
   },
   {
     name: ALLOWED_TOOL_NAMES[1],
-    description: 'Validate one allowlisted suite and its manifest path boundaries; do not execute the browser.',
+    description:
+      'Validate one allowlisted suite and its manifest path boundaries; do not execute the browser.',
     inputSchema: suiteInput,
     annotations: { readOnlyHint: true, destructiveHint: false },
   },
   {
     name: ALLOWED_TOOL_NAMES[2],
-    description: 'Execute a local-loopback Visual QA suite and return only verdict/exit status. Requires explicit VISUAL_QA_TUNNEL_ALLOW_RUN=true.',
+    description:
+      'Execute a local-loopback Visual QA suite and return only verdict/exit status. Requires explicit VISUAL_QA_TUNNEL_ALLOW_RUN=true.',
     inputSchema: suiteInput,
     annotations: { readOnlyHint: false, destructiveHint: false },
   },
@@ -61,7 +67,12 @@ async function allowedSuite(input) {
   const suiteStats = await stat(actual);
   if (!suiteStats.isFile() || suiteStats.size > 1024 * 1024) throw new Error('INVALID_SUITE');
   const data = JSON.parse(await readFile(actual, 'utf8'));
-  if (data?.version !== 1 || !Array.isArray(data.cases) || data.cases.length < 1 || data.cases.length > 100) {
+  if (
+    data?.version !== 1 ||
+    !Array.isArray(data.cases) ||
+    data.cases.length < 1 ||
+    data.cases.length > 100
+  ) {
     throw new Error('INVALID_SUITE');
   }
   for (const item of data.cases) {
@@ -82,9 +93,11 @@ async function allowedSuite(input) {
     // The suite writer must never write outside the allowlisted tree.
     if (!allowedInside(root, outPath)) throw new Error('UNSAFE_OUTPUT_PATH');
     const outParent = await realpath(dirname(outPath));
-    if (!allowedInside(root, outParent) && outParent !== root) throw new Error('UNSAFE_OUTPUT_PATH');
+    if (!allowedInside(root, outParent) && outParent !== root)
+      throw new Error('UNSAFE_OUTPUT_PATH');
     const existingOutput = await realpath(outPath).catch(() => undefined);
-    if (existingOutput && !allowedInside(root, existingOutput)) throw new Error('UNSAFE_OUTPUT_PATH');
+    if (existingOutput && !allowedInside(root, existingOutput))
+      throw new Error('UNSAFE_OUTPUT_PATH');
     if (manifest.auth?.kind === 'storage-state') {
       const statePath = await realpath(resolve(dirname(manifestPath), manifest.auth.path));
       if (!allowedInside(root, statePath)) throw new Error('UNSAFE_AUTH_STATE_PATH');
@@ -110,15 +123,20 @@ async function runSuite(suitePath) {
     VISUAL_QA_ALLOW_REMOTE: 'false',
   };
   return await new Promise((resolveRun) => {
-    const child = spawn(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', [
-      'exec', 'tsx', suiteRunner, suitePath,
-    ], { cwd: repoRoot, env: childEnv, stdio: 'ignore' });
+    const child = spawn(
+      process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+      ['exec', 'tsx', suiteRunner, suitePath],
+      { cwd: repoRoot, env: childEnv, stdio: 'ignore' }
+    );
     let finished = false;
     const finish = (code) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
-      resolveRun({ exitCode: code, verdict: code === 0 ? 'VERIFIED' : code === 1 ? 'FAILED_OR_PARTIAL' : 'BLOCKED' });
+      resolveRun({
+        exitCode: code,
+        verdict: code === 0 ? 'VERIFIED' : code === 1 ? 'FAILED_OR_PARTIAL' : 'BLOCKED',
+      });
     };
     const timer = setTimeout(() => {
       child.kill('SIGTERM');
@@ -133,13 +151,22 @@ async function handleCall(params) {
   const tool = params?.name;
   if (!ALLOWED_TOOL_NAMES.includes(tool)) throw new Error('UNKNOWN_TOOL');
   if (tool === ALLOWED_TOOL_NAMES[0]) {
-    return { configured: Boolean(process.env.VISUAL_QA_CASES_ROOT), runEnabled: process.env.VISUAL_QA_TUNNEL_ALLOW_RUN === 'true', tunnelConnected: 'not-checkable-from-mcp', capabilities: ALLOWED_TOOL_NAMES };
+    return {
+      configured: Boolean(process.env.VISUAL_QA_CASES_ROOT),
+      runEnabled: process.env.VISUAL_QA_TUNNEL_ALLOW_RUN === 'true',
+      tunnelConnected: 'not-checkable-from-mcp',
+      capabilities: ALLOWED_TOOL_NAMES,
+    };
   }
   const arg = params?.arguments;
   if (!arg || Object.keys(arg).some((key) => key !== 'suite')) throw new Error('INVALID_ARGS');
   const permitted = await allowedSuite(arg.suite);
   if (tool === ALLOWED_TOOL_NAMES[1]) {
-    return { permitted: true, cases: permitted.count, note: 'Path/scheme validation only; run suite for SHA-256/Figma snapshot preflight.' };
+    return {
+      permitted: true,
+      cases: permitted.count,
+      note: 'Path/scheme validation only; run suite for SHA-256/Figma snapshot preflight.',
+    };
   }
   if (process.env.VISUAL_QA_TUNNEL_ALLOW_RUN !== 'true') throw new Error('REMOTE_RUN_DISABLED');
   return await runSuite(permitted.suite);
@@ -156,14 +183,24 @@ async function dispatch(message) {
   const respond = (payload) => send({ jsonrpc: '2.0', id, ...payload });
   try {
     if (message.method === 'initialize') {
-      respond({ result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name, version }, instructions: 'Tools are limited to a single allowlisted Visual QA cases root. Remote execution is opt-in.' } });
+      respond({
+        result: {
+          protocolVersion: '2025-06-18',
+          capabilities: { tools: {} },
+          serverInfo: { name, version },
+          instructions:
+            'Tools are limited to a single allowlisted Visual QA cases root. Remote execution is opt-in.',
+        },
+      });
     } else if (message.method === 'ping') {
       respond({ result: {} });
     } else if (message.method === 'tools/list') {
       respond({ result: { tools } });
     } else if (message.method === 'tools/call') {
       const result = await handleCall(message.params);
-      respond({ result: { content: [{ type: 'text', text: JSON.stringify(result) }], isError: false } });
+      respond({
+        result: { content: [{ type: 'text', text: JSON.stringify(result) }], isError: false },
+      });
     } else {
       respond({ error: { code: -32601, message: 'Method not found' } });
     }
@@ -171,10 +208,20 @@ async function dispatch(message) {
     // Only report whitelisted category identifiers: do not disclose paths,
     // URLs, files, input details, credentials or browser stderr.
     const known = [
-      'CASES_ROOT_NOT_CONFIGURED', 'SUITE_PATH_MUST_BE_RELATIVE', 'SUITE_OUTSIDE_ALLOWLIST',
-      'INVALID_SUITE', 'INVALID_MANIFEST', 'UNSAFE_MANIFEST_PATH', 'UNSAFE_SCREENSHOT_PATH',
-      'UNSAFE_OUTPUT_PATH', 'UNSAFE_AUTH_STATE_PATH', 'REMOTE_LOGIN_NOT_ALLOWED',
-      'REMOTE_RUNTIME_NOT_ALLOWED', 'REMOTE_RUN_DISABLED', 'UNKNOWN_TOOL', 'INVALID_ARGS',
+      'CASES_ROOT_NOT_CONFIGURED',
+      'SUITE_PATH_MUST_BE_RELATIVE',
+      'SUITE_OUTSIDE_ALLOWLIST',
+      'INVALID_SUITE',
+      'INVALID_MANIFEST',
+      'UNSAFE_MANIFEST_PATH',
+      'UNSAFE_SCREENSHOT_PATH',
+      'UNSAFE_OUTPUT_PATH',
+      'UNSAFE_AUTH_STATE_PATH',
+      'REMOTE_LOGIN_NOT_ALLOWED',
+      'REMOTE_RUNTIME_NOT_ALLOWED',
+      'REMOTE_RUN_DISABLED',
+      'UNKNOWN_TOOL',
+      'INVALID_ARGS',
     ];
     const code = known.includes(error?.message) ? error.message : 'UNAVAILABLE_OR_INVALID_INPUT';
     respond({ result: { isError: true, content: [{ type: 'text', text: code }] } });
