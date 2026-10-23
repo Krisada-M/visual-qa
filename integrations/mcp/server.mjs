@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { relative, resolve, isAbsolute, dirname, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import process from 'node:process';
+import { setTimeout, clearTimeout } from 'node:timers';
+import { fileURLToPath, URL } from 'node:url';
 import { createInterface } from 'node:readline';
 
 const name = 'visual-qa-secure-mcp';
@@ -81,6 +83,8 @@ async function allowedSuite(input) {
     if (!allowedInside(root, outPath)) throw new Error('UNSAFE_OUTPUT_PATH');
     const outParent = await realpath(dirname(outPath));
     if (!allowedInside(root, outParent) && outParent !== root) throw new Error('UNSAFE_OUTPUT_PATH');
+    const existingOutput = await realpath(outPath).catch(() => undefined);
+    if (existingOutput && !allowedInside(root, existingOutput)) throw new Error('UNSAFE_OUTPUT_PATH');
     if (manifest.auth?.kind === 'storage-state') {
       const statePath = await realpath(resolve(dirname(manifestPath), manifest.auth.path));
       if (!allowedInside(root, statePath)) throw new Error('UNSAFE_AUTH_STATE_PATH');
@@ -99,7 +103,7 @@ async function allowedSuite(input) {
   return { root, suite: actual, count: data.cases.length };
 }
 
-async function runSuite(suitePath, root) {
+async function runSuite(suitePath) {
   // The child cannot elevate remote access via this connector.
   const childEnv = {
     ...process.env,
@@ -138,7 +142,7 @@ async function handleCall(params) {
     return { permitted: true, cases: permitted.count, note: 'Path/scheme validation only; run suite for SHA-256/Figma snapshot preflight.' };
   }
   if (process.env.VISUAL_QA_TUNNEL_ALLOW_RUN !== 'true') throw new Error('REMOTE_RUN_DISABLED');
-  return await runSuite(permitted.suite, permitted.root);
+  return await runSuite(permitted.suite);
 }
 
 function send(message) {

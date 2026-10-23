@@ -34,10 +34,12 @@ jobs:
         env:
           UIMATCH_CHROME_CHANNEL: chrome
           UIMATCH_CHROMIUM_SANDBOX: 'true'
+      - name: Secure MCP stdio handshake and boundary test
+        run: node integrations/mcp/smoke.mjs
       - name: OMP command integration smoke
         run: node integrations/omp/extension/smoke.mjs
       - name: Verify mapping suggestions
         run: pnpm exec tsx packages/uimatch-cli/src/visual-qa/mapping-suggest.ts experiments/visual-qa/mapping-index.example.json
       - run: pnpm run type-check
       - run: pnpm run lint
-      - run: pnpm exec prettier --check packages/uimatch-core/src/adapters/playwright.ts packages/uimatch-core/src/adapters/browser-pool.ts packages/uimatch-core/src/adapters/playwright/route-guard.ts packages/uimatch-core/src/adapters/playwright/route-guard.test.ts packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp
+      - run: pnpm exec prettier --check packages/uimatch-core/src/adapters/playwright.ts packages/uimatch-core/src/adapters/browser-pool.ts packages/uimatch-core/src/adapters/playwright/route-guard.ts packages/uimatch-core/src/adapters/playwright/route-guard.test.ts packages/uimatch-cli/src/commands/compare.ts packages/uimatch-cli/src/commands/figma-png-bypass.ts packages/uimatch-cli/src/commands/figma-png-bypass.test.ts packages/uimatch-cli/src/visual-qa experiments/visual-qa integrations/omp integrations/mcp

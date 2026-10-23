@@ -41,3 +41,11 @@ loopback web app and does not require real user credentials.
 **never auto-confirms**. `suite.ts` verifies explicit mappings and PNG hashes
 before sequential P1 comparisons. See experiment README for commands and
 limits. This integration does not install a native OMP extension.
+
+## Secure MCP Tunnel
+
+The restricted stdio MCP adapter and local setup are documented in
+[Secure MCP README](../mcp/README.md). The OpenAI tunnel-client is the
+supported host-side transport; the adapter does not grant ChatGPT filesystem
+or shell permissions. A working tunnel requires an authorized local client
+and a successfully connected custom MCP plugin.
