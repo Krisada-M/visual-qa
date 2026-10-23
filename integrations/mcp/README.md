@@ -85,3 +85,30 @@ execution. Run test-only pages on loopback; no remote URLs are permitted by
 this bridge. Use `visual_qa_preflight` before enabling writes to QA artifact
 directories. Do not expose the repository's production secrets, health data,
 browser profiles or other workspace folders.
+
+## Hardening and run approval
+
+This adapter is intended for **trusted, dedicated test fixtures only**.
+`visual_qa_run_suite` is disabled unless explicitly enabled. The server
+serializes suite execution, validates per-case output folders **and**
+`suite-artifacts` against its cases root, and does not pass ambient
+provider/API secrets, `NODE_OPTIONS`, or unrelated environment variables to
+the runner.
+
+To use `ui-login` from the tunnel, explicitly allow credential **variable
+names** (not their values). Example, in the Fish shell that starts the server:
+
+```fish
+set -gx VISUAL_QA_TUNNEL_AUTH_ENV_KEYS QA_MEMBER_USERNAME,QA_MEMBER_PASSWORD
+```
+
+The credential values must still be set privately in the host environment.
+Unlisted credential environment names are rejected. The adapter passes only
+the declared QA auth variables and a small set of Node/Playwright runtime
+environment variables. Do not use production accounts or secrets.
+
+Path validation is checked before execution and is **not** a substitute for
+OS-level permissions. A malicious local process with write access to the cases
+directory could still change symlinks or manifests between validation and use.
+Protect the cases root with a dedicated OS user and make approved reference
+snapshots read-only. Do not enable remote runs against untrusted local web apps.

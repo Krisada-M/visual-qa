@@ -11,6 +11,46 @@ const version = '1.0.0';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const suiteRunner = resolve(repoRoot, 'packages/uimatch-cli/src/visual-qa/suite.ts');
 const ALLOWED_TOOL_NAMES = ['visual_qa_status', 'visual_qa_preflight', 'visual_qa_run_suite'];
+const MAX_PNG_BYTES = 32 * 1024 * 1024;
+const CHILD_ENV_KEYS = new Set([
+  'PATH', 'HOME', 'USER', 'TMPDIR', 'TMP', 'TEMP', 'SystemRoot', 'WINDIR',
+  'APPDATA', 'LOCALAPPDATA', 'PNPM_HOME', 'COREPACK_HOME',
+  'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'PLAYWRIGHT_BROWSERS_PATH',
+  'UIMATCH_CHROME_CHANNEL', 'UIMATCH_CHROMIUM_SANDBOX',
+  'LANG', 'LC_ALL', 'CI', 'NO_COLOR',
+]);
+let activeSuite = false;
+
+function allowedAuthKeys() {
+  return new Set(
+    (process.env.VISUAL_QA_TUNNEL_AUTH_ENV_KEYS ?? '')
+      .split(',')
+      .map((key) => key.trim())
+      .filter((key) => /^[A-Z][A-Z0-9_]*$/.test(key))
+  );
+}
+
+function isolatedChildEnv() {
+  const selected = allowedAuthKeys();
+  const result = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (CHILD_ENV_KEYS.has(key) || selected.has(key)) result[key] = value;
+  }
+  result.VISUAL_QA_ALLOW_REMOTE = 'false';
+  return result;
+}
+
+async function checkContainedOutput(root, path) {
+  if (!allowedInside(root, path)) throw new Error('UNSAFE_OUTPUT_PATH');
+  const parent = await realpath(dirname(path));
+  if (parent !== root && !allowedInside(root, parent)) throw new Error('UNSAFE_OUTPUT_PATH');
+  const existing = await realpath(path).catch((error) => {
+    if (error?.code === 'ENOENT') return undefined;
+    throw error;
+  });
+  if (existing && !allowedInside(root, existing)) throw new Error('UNSAFE_OUTPUT_PATH');
+}
+
 const suiteInput = {
   type: 'object',
   properties: {
@@ -67,6 +107,8 @@ async function allowedSuite(input) {
   const suiteStats = await stat(actual);
   if (!suiteStats.isFile() || suiteStats.size > 1024 * 1024) throw new Error('INVALID_SUITE');
   const data = JSON.parse(await readFile(actual, 'utf8'));
+  // The batch runner writes a suite summary outside per-case output folders.
+  await checkContainedOutput(root, resolve(dirname(actual), 'suite-artifacts'));
   if (
     data?.version !== 1 ||
     !Array.isArray(data.cases) ||
@@ -81,35 +123,48 @@ async function allowedSuite(input) {
     }
     const manifestPath = await realpath(resolve(dirname(actual), item.manifest));
     if (!allowedInside(root, manifestPath)) throw new Error('UNSAFE_MANIFEST_PATH');
+    const manifestStat = await stat(manifestPath);
+    if (!manifestStat.isFile() || manifestStat.size > 1024 * 1024) {
+      throw new Error('INVALID_MANIFEST');
+    }
     const raw = await readFile(manifestPath, 'utf8');
-    if (raw.length > 1024 * 1024) throw new Error('INVALID_MANIFEST');
     const manifest = JSON.parse(raw);
     if (!manifest?.figma?.screenshot || !manifest?.runtime?.url || !manifest?.output) {
       throw new Error('INVALID_MANIFEST');
     }
     const figmaPath = await realpath(resolve(dirname(manifestPath), manifest.figma.screenshot));
     if (!allowedInside(root, figmaPath)) throw new Error('UNSAFE_SCREENSHOT_PATH');
+    const screenshotStat = await stat(figmaPath);
+    if (!screenshotStat.isFile() || screenshotStat.size > MAX_PNG_BYTES) {
+      throw new Error('INVALID_SCREENSHOT');
+    }
     const outPath = resolve(dirname(manifestPath), manifest.output);
-    // The suite writer must never write outside the allowlisted tree.
-    if (!allowedInside(root, outPath)) throw new Error('UNSAFE_OUTPUT_PATH');
-    const outParent = await realpath(dirname(outPath));
-    if (!allowedInside(root, outParent) && outParent !== root)
-      throw new Error('UNSAFE_OUTPUT_PATH');
-    const existingOutput = await realpath(outPath).catch(() => undefined);
-    if (existingOutput && !allowedInside(root, existingOutput))
-      throw new Error('UNSAFE_OUTPUT_PATH');
+    await checkContainedOutput(root, outPath);
     if (manifest.auth?.kind === 'storage-state') {
       const statePath = await realpath(resolve(dirname(manifestPath), manifest.auth.path));
       if (!allowedInside(root, statePath)) throw new Error('UNSAFE_AUTH_STATE_PATH');
     }
     if (manifest.auth?.kind === 'ui-login') {
       const loginUrl = new URL(manifest.auth.loginUrl);
-      if (!['localhost', '127.0.0.1', '[::1]'].includes(loginUrl.hostname)) {
+      if (
+        !['http:', 'https:'].includes(loginUrl.protocol) ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(loginUrl.hostname)
+      ) {
         throw new Error('REMOTE_LOGIN_NOT_ALLOWED');
+      }
+      const authKeys = allowedAuthKeys();
+      if (
+        !authKeys.has(manifest.auth.usernameEnv) ||
+        !authKeys.has(manifest.auth.passwordEnv)
+      ) {
+        throw new Error('AUTH_ENV_NOT_ALLOWLISTED');
       }
     }
     const runtimeUrl = new URL(manifest.runtime.url);
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(runtimeUrl.hostname)) {
+    if (
+      !['http:', 'https:'].includes(runtimeUrl.protocol) ||
+      !['localhost', '127.0.0.1', '[::1]'].includes(runtimeUrl.hostname)
+    ) {
       throw new Error('REMOTE_RUNTIME_NOT_ALLOWED');
     }
   }
@@ -117,11 +172,8 @@ async function allowedSuite(input) {
 }
 
 async function runSuite(suitePath) {
-  // The child cannot elevate remote access via this connector.
-  const childEnv = {
-    ...process.env,
-    VISUAL_QA_ALLOW_REMOTE: 'false',
-  };
+  // Do not inherit unrelated secrets or NODE_OPTIONS into child processes.
+  const childEnv = isolatedChildEnv();
   return await new Promise((resolveRun) => {
     const child = spawn(
       process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
@@ -169,7 +221,13 @@ async function handleCall(params) {
     };
   }
   if (process.env.VISUAL_QA_TUNNEL_ALLOW_RUN !== 'true') throw new Error('REMOTE_RUN_DISABLED');
-  return await runSuite(permitted.suite);
+  if (activeSuite) throw new Error('SUITE_ALREADY_RUNNING');
+  activeSuite = true;
+  try {
+    return await runSuite(permitted.suite);
+  } finally {
+    activeSuite = false;
+  }
 }
 
 function send(message) {
@@ -217,6 +275,9 @@ async function dispatch(message) {
       'UNSAFE_SCREENSHOT_PATH',
       'UNSAFE_OUTPUT_PATH',
       'UNSAFE_AUTH_STATE_PATH',
+      'INVALID_SCREENSHOT',
+      'AUTH_ENV_NOT_ALLOWLISTED',
+      'SUITE_ALREADY_RUNNING',
       'REMOTE_LOGIN_NOT_ALLOWED',
       'REMOTE_RUNTIME_NOT_ALLOWED',
       'REMOTE_RUN_DISABLED',

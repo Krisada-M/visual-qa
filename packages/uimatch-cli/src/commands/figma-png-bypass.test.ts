@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { hasFigmaPngBypass, readFigmaPngBypass } from './figma-png-bypass.js';
 
@@ -18,34 +19,66 @@ function fixture(bytes: Buffer): string {
   return path;
 }
 
-function pngHeader(): Buffer {
-  const bytes = Buffer.alloc(24);
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
-  bytes.write('IHDR', 12, 'ascii');
-  bytes.writeUInt32BE(390, 16);
-  bytes.writeUInt32BE(844, 20);
-  return bytes;
+function validPng(): Buffer {
+  const image = new PNG({ width: 2, height: 3 });
+  image.data.fill(255);
+  return PNG.sync.write(image);
 }
 
-describe('Figwright PNG file bypass', () => {
-  it('loads the exported PNG without requiring a Figma token', () => {
-    const bytes = pngHeader();
-    const path = fixture(bytes);
-    expect(hasFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: path })).toBe(true);
-    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: path })).toBe(bytes.toString('base64'));
+describe('Figwright PNG bypass', () => {
+  it('loads the local exported PNG without a Figma token', () => {
+    const bytes = validPng();
+    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: fixture(bytes) })).toBe(
+      bytes.toString('base64')
+    );
   });
 
-  it('retains the legacy inline base64 path', () => {
-    const env = { UIMATCH_FIGMA_PNG_B64: 'dGVzdA==', UIMATCH_FIGMA_PNG_PATH: '/absent.png' };
-    expect(readFigmaPngBypass(env)).toBe('dGVzdA==');
+  it('accepts inline base64 and standard data URLs', () => {
+    const bytes = validPng();
+    const b64 = bytes.toString('base64');
+    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: b64 })).toBe(b64);
+    expect(readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: `data:image/png;base64,${b64}` })).toBe(
+      b64
+    );
   });
 
-  it('rejects non-PNG files before comparison', () => {
-    const path = fixture(Buffer.from('not a png'));
-    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: path })).toThrow('valid PNG');
+  it('keeps inline input precedence but rejects a forged payload', () => {
+    const env = {
+      UIMATCH_FIGMA_PNG_B64: Buffer.from('not a png').toString('base64'),
+      UIMATCH_FIGMA_PNG_PATH: fixture(validPng()),
+    };
+    expect(hasFigmaPngBypass(env)).toBe(true);
+    expect(() => readFigmaPngBypass(env)).toThrow('valid PNG');
   });
 
-  it('returns undefined when no bypass is configured', () => {
+  it('rejects malformed and noncanonical base64 before decode', () => {
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: '!@#?' })).toThrow('malformed');
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: 'AAAA====' })).toThrow(
+      'malformed'
+    );
+  });
+
+  it('rejects oversized inline input before allocating a buffer', () => {
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_B64: 'A'.repeat(45_000_000) })).toThrow(
+      '32 MiB'
+    );
+  });
+
+  it('rejects non-PNG files and excessive PNG dimensions', () => {
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: fixture(Buffer.from('not png')) }))
+      .toThrow('valid PNG');
+    const header = Buffer.alloc(24);
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(header);
+    header.writeUInt32BE(13, 8);
+    header.write('IHDR', 12, 'ascii');
+    header.writeUInt32BE(16_385, 16);
+    header.writeUInt32BE(1, 20);
+    expect(() => readFigmaPngBypass({ UIMATCH_FIGMA_PNG_PATH: fixture(header) })).toThrow(
+      'dimensions'
+    );
+  });
+
+  it('does nothing when no source is provided', () => {
     expect(hasFigmaPngBypass({})).toBe(false);
     expect(readFigmaPngBypass({})).toBeUndefined();
   });
