@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
@@ -65,7 +66,57 @@ try {
     arguments: { command: 'pwd' },
   });
   assert.equal(unknown.result.isError, true);
-  process.stdout.write('Secure MCP handshake and restricted tool tests passed\n');
+
+  // A valid allowlisted suite is accepted for path preflight without running.
+  const png = join(dir, 'cases', 'figma.png');
+  await writeFile(png, Buffer.from('89504e470d0a1a0a', 'hex'));
+  const manifest = {
+    id: 'mcp-smoke',
+    figma: { nodeId: '1:2', screenshot: './figma.png' },
+    runtime: {
+      url: 'http://127.0.0.1:3000/member',
+      selector: '#app',
+      viewport: { width: 390, height: 844 },
+    },
+    output: './artifacts',
+  };
+  await writeFile(join(dir, 'cases', 'manifest.json'), JSON.stringify(manifest));
+  await writeFile(
+    join(dir, 'cases', 'suite.json'),
+    JSON.stringify({
+      version: 1,
+      cases: [{ manifest: 'manifest.json' }],
+    })
+  );
+  const permitted = await request(7, 'tools/call', {
+    name: 'visual_qa_preflight',
+    arguments: { suite: 'cases/suite.json' },
+  });
+  assert.equal(JSON.parse(permitted.result.content[0].text).permitted, true);
+
+  const runDenied = await request(8, 'tools/call', {
+    name: 'visual_qa_run_suite',
+    arguments: { suite: 'cases/suite.json' },
+  });
+  assert.equal(runDenied.result.isError, true);
+  assert.equal(runDenied.result.content[0].text, 'REMOTE_RUN_DISABLED');
+
+  const outside = await mkdtemp(join(tmpdir(), 'visual-qa-mcp-outside-'));
+  try {
+    await symlink(outside, join(dir, 'cases', 'suite-artifacts'), 'dir');
+    const escaped = await request(9, 'tools/call', {
+      name: 'visual_qa_preflight',
+      arguments: { suite: 'cases/suite.json' },
+    });
+    assert.equal(escaped.result.isError, true);
+    assert.equal(escaped.result.content[0].text, 'UNSAFE_OUTPUT_PATH');
+  } finally {
+    await rm(outside, { recursive: true, force: true });
+  }
+
+  process.stdout.write(
+    'Secure MCP handshake, authorization and filesystem boundary tests passed\n'
+  );
 } finally {
   host.kill('SIGTERM');
   await rm(dir, { recursive: true, force: true });
